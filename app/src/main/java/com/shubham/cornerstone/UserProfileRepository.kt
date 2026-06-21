@@ -26,4 +26,11 @@ class UserProfileRepository(private val dao: UserProfileDao) {
             )
         )
     }
+    // Called when a training session finishes — increments the counter.
+    suspend fun incrementSessionsCompleted() {
+        val existing = dao.getProfile() ?: return
+        dao.saveProfile(
+            existing.copy(sessionsCompleted = existing.sessionsCompleted + 1)
+        )
+    }
 }

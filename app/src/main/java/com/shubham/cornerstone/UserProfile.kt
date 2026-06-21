@@ -21,6 +21,9 @@ data class UserProfile(
     val targetWeightKg: Float? = null,       // fight-day target
     val fightDateEpochDay: Long? = null,     // null = no fight booked
 
+    // --- Progress ---
+    val sessionsCompleted: Int = 0,
+
     // --- Housekeeping ---
     val onboardingComplete: Boolean = false,
     val createdAtEpochMs: Long = System.currentTimeMillis()

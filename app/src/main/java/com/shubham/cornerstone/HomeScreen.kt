@@ -37,7 +37,8 @@ import com.shubham.cornerstone.ui.theme.InkBlack
 @Composable
 fun HomeScreen(
     profile: UserProfile,
-    onStartSession: () -> Unit
+    onStartSession: () -> Unit,
+    onOpenGlossary: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -99,6 +100,7 @@ fun HomeScreen(
             SessionCard(
                 sport = profile.sport,
                 level = profile.level,
+                sessionNumber = profile.sessionsCompleted + 1,
                 onClick = onStartSession
             )
 
@@ -111,6 +113,42 @@ fun HomeScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth()
             )
+
+            Spacer(Modifier.height(20.dp))
+
+            // --- Glossary link ---
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenGlossary() },
+                shape = RoundedCornerShape(16.dp),
+                color = Charcoal
+            ) {
+                Row(
+                    modifier = Modifier.padding(18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(
+                            text = "New to boxing?",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Text(
+                            text = "Learn what 1, 2, 3 mean",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        text = "→",
+                        fontSize = 20.sp,
+                        color = FightRed
+                    )
+                }
+            }
         }
     }
 }
@@ -119,6 +157,7 @@ fun HomeScreen(
 private fun SessionCard(
     sport: String,
     level: String,
+    sessionNumber: Int,
     onClick: () -> Unit
 ) {
     Surface(
@@ -169,7 +208,7 @@ private fun SessionCard(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "TONIGHT'S SESSION",
+                        text = "SESSION $sessionNumber",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 2.sp,
