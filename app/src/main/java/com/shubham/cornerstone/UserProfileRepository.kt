@@ -15,17 +15,25 @@ class UserProfileRepository(private val dao: UserProfileDao) {
 
     suspend fun saveProfile(profile: UserProfile) = dao.saveProfile(profile)
 
-    // Convenience: save the two onboarding answers and mark it done.
-    suspend fun completeOnboarding(sport: String, level: String) {
+    // Convenience: save the onboarding answers and mark it done.
+    suspend fun completeOnboarding(
+        sport: String,
+        level: String,
+        dominance: String,
+        stance: String
+    ) {
         val existing = dao.getProfile() ?: UserProfile()
         dao.saveProfile(
             existing.copy(
                 sport = sport,
                 level = level,
+                dominance = dominance,
+                stance = stance,
                 onboardingComplete = true
             )
         )
     }
+
     // Called when a training session finishes — increments the counter.
     suspend fun incrementSessionsCompleted() {
         val existing = dao.getProfile() ?: return

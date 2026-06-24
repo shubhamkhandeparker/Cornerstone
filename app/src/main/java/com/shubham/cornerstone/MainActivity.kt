@@ -92,7 +92,12 @@ fun CornerstoneApp(repository: UserProfileRepository) {
 
                     // Kick off AI generation once when we enter the session.
                     LaunchedEffect(Unit) {
-                        sessionVm.load(currentProfile.sport, currentProfile.level)
+                        sessionVm.load(
+                            sport = currentProfile.sport,
+                            level = currentProfile.level,
+                            dominance = currentProfile.dominance,
+                            stance = currentProfile.stance
+                        )
                     }
 
                     when (val s = state) {

@@ -15,6 +15,8 @@ data class UserProfile(
     // --- Set during onboarding (tiny) ---
     val sport: String = "Boxing",            // Boxing / Muay Thai / MMA
     val level: String = "Beginner",          // Beginner / Intermediate / Advanced
+    val dominance: String = "Striker",       // Striker / Grappler / All-rounder
+    val stance: String = "Orthodox",         // Orthodox / Southpaw
 
     // --- Learned passively over time ---
     val currentWeightKg: Float? = null,      // null until first logged

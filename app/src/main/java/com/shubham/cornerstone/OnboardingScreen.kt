@@ -44,6 +44,8 @@ fun OnboardingScreen(
 ) {
     val sport by viewModel.sport.collectAsStateWithLifecycle()
     val level by viewModel.level.collectAsStateWithLifecycle()
+    val dominance by viewModel.dominance.collectAsStateWithLifecycle()
+    val stance by viewModel.stance.collectAsStateWithLifecycle()
     val scroll = rememberScrollState()
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -109,7 +111,7 @@ fun OnboardingScreen(
                 )
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    text = "Two taps. We learn the rest every time you train.",
+                    text = "A few taps. We learn the rest every time you train.",
                     fontSize = 15.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -138,6 +140,34 @@ fun OnboardingScreen(
                             label = option,
                             selected = option == level,
                             onClick = { viewModel.selectLevel(option) }
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(30.dp))
+
+                SectionLabel("03", "Your style")
+                Spacer(Modifier.height(14.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    listOf("Striker", "Grappler", "All-rounder").forEach { option ->
+                        SelectableChip(
+                            label = option,
+                            selected = option == dominance,
+                            onClick = { viewModel.selectDominance(option) }
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(30.dp))
+
+                SectionLabel("04", "Your stance")
+                Spacer(Modifier.height(14.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    listOf("Orthodox", "Southpaw").forEach { option ->
+                        SelectableChip(
+                            label = option,
+                            selected = option == stance,
+                            onClick = { viewModel.selectStance(option) }
                         )
                     }
                 }

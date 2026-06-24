@@ -16,25 +16,36 @@ class OnboardingViewModel(
     private val repository: UserProfileRepository
 ) : ViewModel() {
 
-    // What the user has selected so far (starts on defaults).
     private val _sport = MutableStateFlow("Boxing")
     val sport: StateFlow<String> = _sport.asStateFlow()
 
     private val _level = MutableStateFlow("Beginner")
     val level: StateFlow<String> = _level.asStateFlow()
 
+    private val _dominance = MutableStateFlow("Striker")
+    val dominance: StateFlow<String> = _dominance.asStateFlow()
+
+    private val _stance = MutableStateFlow("Orthodox")
+    val stance: StateFlow<String> = _stance.asStateFlow()
+
     fun selectSport(value: String) { _sport.value = value }
     fun selectLevel(value: String) { _level.value = value }
+    fun selectDominance(value: String) { _dominance.value = value }
+    fun selectStance(value: String) { _stance.value = value }
 
     // Save choices to the database, then run the callback (e.g. navigate away).
     fun finish(onDone: () -> Unit) {
         viewModelScope.launch {
-            repository.completeOnboarding(_sport.value, _level.value)
+            repository.completeOnboarding(
+                sport = _sport.value,
+                level = _level.value,
+                dominance = _dominance.value,
+                stance = _stance.value
+            )
             onDone()
         }
     }
 
-    // Factory — lets us create this ViewModel with the repository injected.
     class Factory(private val repository: UserProfileRepository) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {

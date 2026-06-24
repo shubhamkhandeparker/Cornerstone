@@ -23,10 +23,10 @@ class SessionViewModel(
     private val _state = MutableStateFlow<State>(State.Loading)
     val state: StateFlow<State> = _state.asStateFlow()
 
-    fun load(sport: String, level: String) {
+    fun load(sport: String, level: String, dominance: String, stance: String) {
         _state.value = State.Loading
         viewModelScope.launch {
-            val combos = generator.generate(sport, level)
+            val combos = generator.generate(sport, level, dominance, stance)
             _state.value = State.Ready(combos)
         }
     }
