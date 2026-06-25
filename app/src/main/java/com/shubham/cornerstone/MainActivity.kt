@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -57,12 +58,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Screen { HOME, SESSION, GLOSSARY }
+private enum class Screen { HOME, DURATION, SESSION, GLOSSARY }
 
 @Composable
 fun CornerstoneApp(repository: UserProfileRepository) {
     val profile by repository.profile.collectAsStateWithLifecycle(initialValue = null)
     var screen by remember { mutableStateOf(Screen.HOME) }
+    var secondsPerCombo by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
 
     when {
@@ -81,16 +83,22 @@ fun CornerstoneApp(repository: UserProfileRepository) {
             when (screen) {
                 Screen.HOME -> HomeScreen(
                     profile = currentProfile,
-                    onStartSession = { screen = Screen.SESSION },
+                    onStartSession = { screen = Screen.DURATION },
                     onOpenGlossary = { screen = Screen.GLOSSARY }
                 )
 
+                Screen.DURATION -> DurationPickerScreen(
+                    onStart = { seconds ->
+                        secondsPerCombo = seconds
+                        screen = Screen.SESSION
+                    },
+                    onExit = { screen = Screen.HOME }
+                )
+
                 Screen.SESSION -> {
-                    // Fresh ViewModel per session so combos regenerate each time.
                     val sessionVm: SessionViewModel = viewModel(key = "session")
                     val state by sessionVm.state.collectAsStateWithLifecycle()
 
-                    // Kick off AI generation once when we enter the session.
                     LaunchedEffect(Unit) {
                         sessionVm.load(
                             sport = currentProfile.sport,
@@ -107,6 +115,7 @@ fun CornerstoneApp(repository: UserProfileRepository) {
                         is SessionViewModel.State.Ready -> {
                             SessionScreen(
                                 combos = s.combos,
+                                secondsPerCombo = secondsPerCombo,
                                 onFinishSession = {
                                     scope.launch { repository.incrementSessionsCompleted() }
                                     screen = Screen.HOME
@@ -125,7 +134,6 @@ fun CornerstoneApp(repository: UserProfileRepository) {
     }
 }
 
-// Shown while the AI builds the session.
 @Composable
 private fun GeneratingScreen() {
     Box(
