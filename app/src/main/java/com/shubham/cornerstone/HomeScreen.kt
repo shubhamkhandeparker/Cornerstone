@@ -38,7 +38,8 @@ import com.shubham.cornerstone.ui.theme.InkBlack
 fun HomeScreen(
     profile: UserProfile,
     onStartSession: () -> Unit,
-    onOpenGlossary: () -> Unit
+    onOpenGlossary: () -> Unit,
+    onOpenWeightCut: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -57,7 +58,6 @@ fun HomeScreen(
         ) {
             Spacer(Modifier.height(24.dp))
 
-            // --- Top bar: greeting + profile dot ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -69,7 +69,9 @@ fun HomeScreen(
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
                     Spacer(Modifier.height(2.dp))
+
                     Text(
                         text = "Time to work.",
                         fontSize = 26.sp,
@@ -77,7 +79,7 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.onBackground
                     )
                 }
-                // Profile badge (sport initial)
+
                 Surface(
                     modifier = Modifier.size(44.dp),
                     shape = CircleShape,
@@ -96,7 +98,6 @@ fun HomeScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            // --- HERO: tonight's session card ---
             SessionCard(
                 sport = profile.sport,
                 level = profile.level,
@@ -106,7 +107,6 @@ fun HomeScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // --- Small footer hint ---
             Text(
                 text = "No equipment needed. 20 minutes. Let's go.",
                 fontSize = 13.sp,
@@ -116,40 +116,128 @@ fun HomeScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // --- Glossary link ---
+            WeightCutCard(
+                hasPlan = profile.targetWeightKg != null && profile.fightDateEpochDay != null,
+                onClick = onOpenWeightCut
+            )
+
+            Spacer(Modifier.height(14.dp))
+
+            GlossaryCard(
+                sport = profile.sport,
+                onClick = onOpenGlossary
+            )
+        }
+    }
+}
+
+@Composable
+private fun WeightCutCard(
+    hasPlan: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        color = Charcoal
+    ) {
+        Row(
+            modifier = Modifier.padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = "Weight cut",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                Text(
+                    text = if (hasPlan) {
+                        "Log today and check your pace"
+                    } else {
+                        "Set target and fight timeline"
+                    },
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onOpenGlossary() },
-                shape = RoundedCornerShape(16.dp),
-                color = Charcoal
+                shape = RoundedCornerShape(999.dp),
+                color = FightRed.copy(alpha = 0.16f)
             ) {
-                Row(
-                    modifier = Modifier.padding(18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text(
-                            text = "New to boxing?",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Text(
-                            text = "Learn what 1, 2, 3 mean",
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Text(
-                        text = "→",
-                        fontSize = 20.sp,
-                        color = FightRed
-                    )
-                }
+                Text(
+                    text = if (hasPlan) "TRACK" else "SET UP",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.sp,
+                    color = FightRed,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun GlossaryCard(
+    sport: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        color = Charcoal
+    ) {
+        Row(
+            modifier = Modifier.padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = glossaryTitle(sport),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                Text(
+                    text = glossarySubtitle(sport),
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Text(
+                text = "->",
+                fontSize = 20.sp,
+                color = FightRed
+            )
+        }
+    }
+}
+
+private fun glossaryTitle(sport: String): String {
+    return when (sport) {
+        "Muay Thai" -> "New to Muay Thai?"
+        "MMA" -> "New to MMA?"
+        else -> "New to boxing?"
+    }
+}
+
+private fun glossarySubtitle(sport: String): String {
+    return when (sport) {
+        "Muay Thai" -> "Learn strikes, knees, elbows"
+        "MMA" -> "Learn strikes and fight terms"
+        else -> "Learn what 1, 2, 3 mean"
     }
 }
 
@@ -170,7 +258,6 @@ private fun SessionCard(
         color = Charcoal
     ) {
         Box {
-            // Red gradient wash for energy
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -183,7 +270,7 @@ private fun SessionCard(
                         )
                     )
             )
-            // Soft glow bottom-right
+
             Box(
                 modifier = Modifier
                     .size(220.dp)
@@ -198,7 +285,6 @@ private fun SessionCard(
                     .padding(24.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Top label
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
@@ -206,7 +292,9 @@ private fun SessionCard(
                             .clip(CircleShape)
                             .background(FightRed)
                     )
+
                     Spacer(Modifier.width(8.dp))
+
                     Text(
                         text = "SESSION $sessionNumber",
                         fontSize = 12.sp,
@@ -216,7 +304,6 @@ private fun SessionCard(
                     )
                 }
 
-                // Middle: the pitch
                 Column {
                     Text(
                         text = "$sport\nShadow + Drills",
@@ -225,7 +312,9 @@ private fun SessionCard(
                         fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.onBackground
                     )
+
                     Spacer(Modifier.height(6.dp))
+
                     Text(
                         text = "$level · adapted to you",
                         fontSize = 14.sp,
@@ -233,7 +322,6 @@ private fun SessionCard(
                     )
                 }
 
-                // Bottom: call to action
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = FightRed,
@@ -246,7 +334,7 @@ private fun SessionCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Start training  →",
+                            text = "Start training  ->",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White

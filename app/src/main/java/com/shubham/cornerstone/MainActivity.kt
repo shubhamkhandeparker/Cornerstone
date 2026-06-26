@@ -36,6 +36,7 @@ import com.shubham.cornerstone.ui.theme.CornerstoneTheme
 import com.shubham.cornerstone.ui.theme.FightRed
 import com.shubham.cornerstone.ui.theme.InkBlack
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,7 +44,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val database = AppDatabase.get(applicationContext)
-        val repository = UserProfileRepository(database.userProfileDao())
+        val userRepository = UserProfileRepository(database.userProfileDao())
+        val weightRepository = WeightRepository(
+            weightDao = database.weightDao(),
+            profileDao = database.userProfileDao()
+        )
 
         setContent {
             CornerstoneTheme {
@@ -51,27 +56,51 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    CornerstoneApp(repository = repository)
+                    CornerstoneApp(
+                        userRepository = userRepository,
+                        weightRepository = weightRepository
+                    )
                 }
             }
         }
     }
 }
 
-private enum class Screen { HOME, DURATION, SESSION, GLOSSARY }
+private enum class Screen {
+    HOME,
+    DURATION,
+    SESSION,
+    GLOSSARY,
+    WEIGHT_SETUP,
+    WEIGHT_CUT
+}
 
 @Composable
-fun CornerstoneApp(repository: UserProfileRepository) {
-    val profile by repository.profile.collectAsStateWithLifecycle(initialValue = null)
+fun CornerstoneApp(
+    userRepository: UserProfileRepository,
+    weightRepository: WeightRepository
+) {
+    val profile by userRepository.profile.collectAsStateWithLifecycle(initialValue = null)
+    val weightEntries by weightRepository.entries.collectAsStateWithLifecycle(initialValue = emptyList())
+
     var screen by remember { mutableStateOf(Screen.HOME) }
     var secondsPerCombo by remember { mutableIntStateOf(0) }
+    var cutStatus by remember { mutableStateOf<CutStatus?>(null) }
+
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(screen, weightEntries, profile?.targetWeightKg, profile?.fightDateEpochDay) {
+        if (screen == Screen.WEIGHT_CUT) {
+            cutStatus = weightRepository.computeStatus()
+        }
+    }
 
     when {
         profile == null || !profile!!.onboardingComplete -> {
             val onboardingVm: OnboardingViewModel = viewModel(
-                factory = OnboardingViewModel.Factory(repository)
+                factory = OnboardingViewModel.Factory(userRepository)
             )
+
             OnboardingScreen(
                 viewModel = onboardingVm,
                 onFinished = { }
@@ -80,11 +109,22 @@ fun CornerstoneApp(repository: UserProfileRepository) {
 
         else -> {
             val currentProfile = profile!!
+
             when (screen) {
                 Screen.HOME -> HomeScreen(
                     profile = currentProfile,
                     onStartSession = { screen = Screen.DURATION },
-                    onOpenGlossary = { screen = Screen.GLOSSARY }
+                    onOpenGlossary = { screen = Screen.GLOSSARY },
+                    onOpenWeightCut = {
+                        screen = if (
+                            currentProfile.targetWeightKg != null &&
+                            currentProfile.fightDateEpochDay != null
+                        ) {
+                            Screen.WEIGHT_CUT
+                        } else {
+                            Screen.WEIGHT_SETUP
+                        }
+                    }
                 )
 
                 Screen.DURATION -> DurationPickerScreen(
@@ -112,12 +152,15 @@ fun CornerstoneApp(repository: UserProfileRepository) {
                         is SessionViewModel.State.Loading -> {
                             GeneratingScreen()
                         }
+
                         is SessionViewModel.State.Ready -> {
                             SessionScreen(
                                 combos = s.combos,
                                 secondsPerCombo = secondsPerCombo,
                                 onFinishSession = {
-                                    scope.launch { repository.incrementSessionsCompleted() }
+                                    scope.launch {
+                                        userRepository.incrementSessionsCompleted()
+                                    }
                                     screen = Screen.HOME
                                 },
                                 onExit = { screen = Screen.HOME }
@@ -127,6 +170,34 @@ fun CornerstoneApp(repository: UserProfileRepository) {
                 }
 
                 Screen.GLOSSARY -> GlossaryScreen(
+                    onExit = { screen = Screen.HOME }
+                )
+
+                Screen.WEIGHT_SETUP -> WeightSetupScreen(
+                    onSave = { targetKg, fightInDays, useKg ->
+                        scope.launch {
+                            weightRepository.setPlan(
+                                targetKg = targetKg,
+                                fightDate = LocalDate.now().plusDays(fightInDays.toLong()),
+                                useKg = useKg
+                            )
+                            cutStatus = weightRepository.computeStatus()
+                            screen = Screen.WEIGHT_CUT
+                        }
+                    },
+                    onExit = { screen = Screen.HOME }
+                )
+
+                Screen.WEIGHT_CUT -> WeightCutScreen(
+                    status = cutStatus,
+                    entries = weightEntries,
+                    useKg = currentProfile.weightUnit == "kg",
+                    onLogWeight = { weightKg ->
+                        scope.launch {
+                            weightRepository.logWeight(weightKg)
+                            cutStatus = weightRepository.computeStatus()
+                        }
+                    },
                     onExit = { screen = Screen.HOME }
                 )
             }
@@ -149,14 +220,18 @@ private fun GeneratingScreen() {
             verticalArrangement = Arrangement.Center
         ) {
             CircularProgressIndicator(color = FightRed)
+
             Spacer(Modifier.height(24.dp))
+
             Text(
-                text = "Building tonight's session…",
+                text = "Building tonight's session...",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
+
             Spacer(Modifier.height(6.dp))
+
             Text(
                 text = "Adapting to your level",
                 fontSize = 13.sp,

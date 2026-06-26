@@ -4,7 +4,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /**
- * The fighter's profile — the core of personalization.
+ * The fighter's profile - the core of personalization.
  * There's only ever ONE row (id = 1), updated as we learn more.
  */
 @Entity(tableName = "user_profile")
@@ -22,6 +22,7 @@ data class UserProfile(
     val currentWeightKg: Float? = null,      // null until first logged
     val targetWeightKg: Float? = null,       // fight-day target
     val fightDateEpochDay: Long? = null,     // null = no fight booked
+    val weightUnit: String = "kg",           // "kg" or "lbs"
 
     // --- Progress ---
     val sessionsCompleted: Int = 0,
