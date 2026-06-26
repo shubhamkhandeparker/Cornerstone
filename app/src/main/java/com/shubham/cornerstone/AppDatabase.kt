@@ -10,13 +10,14 @@ import androidx.room.RoomDatabase
  * Holds all tables and hands out DAOs to talk to them.
  */
 @Database(
-    entities = [UserProfile::class],
-    version = 3,
+    entities = [UserProfile::class, WeightEntry::class],
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun userProfileDao(): UserProfileDao
+    abstract fun weightDao(): WeightDao
 
     companion object {
         @Volatile
