@@ -71,6 +71,9 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
+    // Google Play Billing — subscriptions
+    implementation(libs.billing.ktx)
+
     // ViewModel + Navigation — connects data to screens
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)

@@ -27,6 +27,9 @@ data class UserProfile(
     // --- Progress ---
     val sessionsCompleted: Int = 0,
 
+    // --- Monetization ---
+    val isPro: Boolean = false,              // unlocked the paid weight-cut feature
+
     // --- Housekeeping ---
     val onboardingComplete: Boolean = false,
     val createdAtEpochMs: Long = System.currentTimeMillis()

@@ -71,6 +71,7 @@ private enum class Screen {
     DURATION,
     SESSION,
     GLOSSARY,
+    PAYWALL,
     WEIGHT_SETUP,
     WEIGHT_CUT
 }
@@ -110,21 +111,23 @@ fun CornerstoneApp(
         else -> {
             val currentProfile = profile!!
 
+            // Decides where the weight-cut card sends the user.
+            // Free users hit the paywall first; Pro users go straight in.
+            fun openWeightCut() {
+                screen = when {
+                    !currentProfile.isPro -> Screen.PAYWALL
+                    currentProfile.targetWeightKg != null &&
+                            currentProfile.fightDateEpochDay != null -> Screen.WEIGHT_CUT
+                    else -> Screen.WEIGHT_SETUP
+                }
+            }
+
             when (screen) {
                 Screen.HOME -> HomeScreen(
                     profile = currentProfile,
                     onStartSession = { screen = Screen.DURATION },
                     onOpenGlossary = { screen = Screen.GLOSSARY },
-                    onOpenWeightCut = {
-                        screen = if (
-                            currentProfile.targetWeightKg != null &&
-                            currentProfile.fightDateEpochDay != null
-                        ) {
-                            Screen.WEIGHT_CUT
-                        } else {
-                            Screen.WEIGHT_SETUP
-                        }
-                    }
+                    onOpenWeightCut = { openWeightCut() }
                 )
 
                 Screen.DURATION -> DurationPickerScreen(
@@ -170,6 +173,20 @@ fun CornerstoneApp(
                 }
 
                 Screen.GLOSSARY -> GlossaryScreen(
+                    onExit = { screen = Screen.HOME }
+                )
+
+                Screen.PAYWALL -> PaywallScreen(
+                    onProEntitled = {
+                        scope.launch {
+                            userRepository.setPro(true)
+                            // After a verified purchase, route to setup or the cut screen.
+                            screen = if (
+                                currentProfile.targetWeightKg != null &&
+                                currentProfile.fightDateEpochDay != null
+                            ) Screen.WEIGHT_CUT else Screen.WEIGHT_SETUP
+                        }
+                    },
                     onExit = { screen = Screen.HOME }
                 )
 

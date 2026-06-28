@@ -41,4 +41,10 @@ class UserProfileRepository(private val dao: UserProfileDao) {
             existing.copy(sessionsCompleted = existing.sessionsCompleted + 1)
         )
     }
+
+    // Flip on Pro access (called when the user upgrades).
+    suspend fun setPro(isPro: Boolean) {
+        val existing = dao.getProfile() ?: UserProfile()
+        dao.saveProfile(existing.copy(isPro = isPro))
+    }
 }
