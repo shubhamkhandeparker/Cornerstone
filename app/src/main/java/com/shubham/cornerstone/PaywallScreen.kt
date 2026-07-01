@@ -27,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -38,6 +39,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.shubham.cornerstone.ui.theme.Charcoal
 import com.shubham.cornerstone.ui.theme.FightRed
 import com.shubham.cornerstone.ui.theme.InkBlack
@@ -50,25 +54,44 @@ fun PaywallScreen(
     val scroll = rememberScrollState()
     val context = LocalContext.current
     val activity = context as? Activity
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    // One BillingManager for the lifetime of this screen.
     val billingManager = remember {
-        BillingManager(
-            context = context.applicationContext,
-            onProEntitled = onProEntitled
-        )
+        BillingManager(context = context.applicationContext)
     }
 
     val connectionState by billingManager.connectionState.collectAsState()
     val productDetails by billingManager.productDetails.collectAsState()
+    val purchaseState by billingManager.purchaseState.collectAsState()
 
-    // Connect when the paywall appears; release when it leaves.
     DisposableEffect(Unit) {
         billingManager.connect()
-        onDispose { billingManager.disconnect() }
+
+        onDispose {
+            billingManager.disconnect()
+        }
     }
 
-    // Live price from Play if available, else the placeholder.
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                billingManager.refreshPurchases()
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(purchaseState) {
+        if (purchaseState == BillingManager.PurchaseState.ENTITLED) {
+            onProEntitled()
+        }
+    }
+
     val priceText = productDetails
         ?.subscriptionOfferDetails
         ?.firstOrNull()
@@ -76,22 +99,63 @@ fun PaywallScreen(
         ?.pricingPhaseList
         ?.firstOrNull()
         ?.formattedPrice
-        ?: "₹99"
+        ?: "₹100"
 
-    // Button label reflects billing state so you can SEE the connection working.
-    val (buttonLabel, buttonEnabled) = when (connectionState) {
-        BillingManager.ConnectionState.CONNECTING -> "Connecting…" to false
-        BillingManager.ConnectionState.ERROR -> "Store unavailable — retry" to true
-        BillingManager.ConnectionState.CONNECTED ->
-            if (productDetails == null) "Loading plan…" to false
-            else "Unlock Pro" to true
-        BillingManager.ConnectionState.DISCONNECTED -> "Connect to store" to true
+    val (buttonLabel, buttonEnabled) = when {
+        purchaseState == BillingManager.PurchaseState.PROCESSING ->
+            "Processing purchase..." to false
+
+        purchaseState == BillingManager.PurchaseState.PENDING ->
+            "Waiting for payment confirmation..." to false
+
+        purchaseState == BillingManager.PurchaseState.ERROR ->
+            "Try again" to true
+
+        connectionState == BillingManager.ConnectionState.CONNECTING ->
+            "Connecting..." to false
+
+        connectionState == BillingManager.ConnectionState.ERROR ->
+            "Store unavailable — retry" to true
+
+        connectionState == BillingManager.ConnectionState.CONNECTED ->
+            if (productDetails == null) {
+                "Loading plan..." to false
+            } else {
+                "Unlock Pro" to true
+            }
+
+        connectionState == BillingManager.ConnectionState.DISCONNECTED ->
+            "Connect to store" to true
+
+        else ->
+            "Unlock Pro" to true
+    }
+
+    val statusText = when (purchaseState) {
+        BillingManager.PurchaseState.PROCESSING ->
+            "Do not close the app yet. Waiting for Google Play..."
+
+        BillingManager.PurchaseState.PENDING ->
+            "Your payment is pending. Pro will unlock automatically after Google confirms it."
+
+        BillingManager.PurchaseState.ERROR ->
+            "Something went wrong. You can retry or reopen the paywall."
+
+        else ->
+            "Free: AI combos, round timer & drills stay free forever."
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF1E1416), InkBlack)))
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color(0xFF1E1416),
+                        InkBlack
+                    )
+                )
+            )
     ) {
         Column(
             modifier = Modifier
@@ -107,13 +171,14 @@ fun PaywallScreen(
                 fontSize = 20.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
-                    .clickable { onExit() }
+                    .clickable {
+                        onExit()
+                    }
                     .padding(8.dp)
             )
 
             Spacer(Modifier.height(24.dp))
 
-            // Pro badge
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = FightRed
@@ -149,15 +214,28 @@ fun PaywallScreen(
 
             Spacer(Modifier.height(36.dp))
 
-            // Feature list
-            ProFeature("Daily pace tracking", "Know exactly how much to cut, every day.")
-            ProFeature("On-track or behind alerts", "Real-time status so there are no surprises on fight day.")
-            ProFeature("Your full weight curve", "See your whole camp at a glance and trust the trend.")
-            ProFeature("Remembers everything", "Your target, your history, your pace — it compounds over weeks.")
+            ProFeature(
+                title = "Daily pace tracking",
+                subtitle = "Know exactly how much to cut, every day."
+            )
+
+            ProFeature(
+                title = "On-track or behind alerts",
+                subtitle = "Real-time status so there are no surprises on fight day."
+            )
+
+            ProFeature(
+                title = "Your full weight curve",
+                subtitle = "See your whole camp at a glance and trust the trend."
+            )
+
+            ProFeature(
+                title = "Remembers everything",
+                subtitle = "Your target, your history, your pace — it compounds over weeks."
+            )
 
             Spacer(Modifier.height(36.dp))
 
-            // Price card
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -175,6 +253,7 @@ fun PaywallScreen(
                                 fontWeight = FontWeight.Black,
                                 color = MaterialTheme.colorScheme.onBackground
                             )
+
                             Text(
                                 text = "/month",
                                 fontSize = 15.sp,
@@ -182,6 +261,7 @@ fun PaywallScreen(
                                 modifier = Modifier.padding(bottom = 5.dp, start = 4.dp)
                             )
                         }
+
                         Text(
                             text = "Cancel anytime",
                             fontSize = 13.sp,
@@ -196,15 +276,25 @@ fun PaywallScreen(
             Column(modifier = Modifier.navigationBarsPadding()) {
                 Button(
                     onClick = {
-                        when (connectionState) {
-                            BillingManager.ConnectionState.CONNECTED -> {
-                                if (activity != null) billingManager.launchPurchase(activity)
+                        when {
+                            purchaseState == BillingManager.PurchaseState.ERROR -> {
+                                billingManager.refreshPurchases()
                             }
-                            BillingManager.ConnectionState.ERROR,
-                            BillingManager.ConnectionState.DISCONNECTED -> {
+
+                            connectionState == BillingManager.ConnectionState.CONNECTED &&
+                                    productDetails != null &&
+                                    activity != null -> {
+                                billingManager.launchPurchase(activity)
+                            }
+
+                            connectionState == BillingManager.ConnectionState.ERROR ||
+                                    connectionState == BillingManager.ConnectionState.DISCONNECTED -> {
                                 billingManager.connect()
                             }
-                            else -> { /* connecting / loading — do nothing */ }
+
+                            else -> {
+                                // Connecting, loading, processing, or pending.
+                            }
                         }
                     },
                     enabled = buttonEnabled,
@@ -220,14 +310,17 @@ fun PaywallScreen(
                         fontWeight = FontWeight.Bold
                     )
                 }
+
                 Spacer(Modifier.height(12.dp))
+
                 Text(
-                    text = "Free: AI combos, round timer & drills stay free forever.",
+                    text = statusText,
                     fontSize = 13.sp,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth()
                 )
+
                 Spacer(Modifier.height(24.dp))
             }
         }
@@ -235,23 +328,32 @@ fun PaywallScreen(
 }
 
 @Composable
-private fun ProFeature(title: String, subtitle: String) {
+private fun ProFeature(
+    title: String,
+    subtitle: String
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 20.dp)
     ) {
-        // Red check dot
         Surface(
             modifier = Modifier.size(28.dp),
             shape = CircleShape,
             color = FightRed.copy(alpha = 0.15f)
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text("✓", color = FightRed, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                Text(
+                    text = "✓",
+                    color = FightRed,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 15.sp
+                )
             }
         }
+
         Spacer(Modifier.width(14.dp))
+
         Column {
             Text(
                 text = title,
@@ -259,7 +361,9 @@ private fun ProFeature(title: String, subtitle: String) {
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
+
             Spacer(Modifier.height(2.dp))
+
             Text(
                 text = subtitle,
                 fontSize = 14.sp,

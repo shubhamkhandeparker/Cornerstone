@@ -13,22 +13,25 @@ data class UserProfile(
     val id: Int = 1,
 
     // --- Set during onboarding (tiny) ---
-    val sport: String = "Boxing",            // Boxing / Muay Thai / MMA
-    val level: String = "Beginner",          // Beginner / Intermediate / Advanced
-    val dominance: String = "Striker",       // Striker / Grappler / All-rounder
-    val stance: String = "Orthodox",         // Orthodox / Southpaw
+    val sport: String = "Boxing",
+    val level: String = "Beginner",
+    val dominance: String = "Striker",
+    val stance: String = "Orthodox",
 
     // --- Learned passively over time ---
-    val currentWeightKg: Float? = null,      // null until first logged
-    val targetWeightKg: Float? = null,       // fight-day target
-    val fightDateEpochDay: Long? = null,     // null = no fight booked
-    val weightUnit: String = "kg",           // "kg" or "lbs"
+    val currentWeightKg: Float? = null,
+    val targetWeightKg: Float? = null,
+    val fightDateEpochDay: Long? = null,
+    val weightUnit: String = "kg",
 
     // --- Progress ---
     val sessionsCompleted: Int = 0,
 
     // --- Monetization ---
-    val isPro: Boolean = false,              // unlocked the paid weight-cut feature
+    val isPro: Boolean = false,
+
+    // --- First-launch flow ---
+    val introSeen: Boolean = false,
 
     // --- Housekeeping ---
     val onboardingComplete: Boolean = false,

@@ -49,6 +49,7 @@ class MainActivity : ComponentActivity() {
             weightDao = database.weightDao(),
             profileDao = database.userProfileDao()
         )
+        val comboLibraryRepository = ComboLibraryRepository(database.comboLibraryDao())
 
         setContent {
             CornerstoneTheme {
@@ -58,7 +59,8 @@ class MainActivity : ComponentActivity() {
                 ) {
                     CornerstoneApp(
                         userRepository = userRepository,
-                        weightRepository = weightRepository
+                        weightRepository = weightRepository,
+                        comboLibraryRepository = comboLibraryRepository
                     )
                 }
             }
@@ -71,6 +73,7 @@ private enum class Screen {
     DURATION,
     SESSION,
     GLOSSARY,
+    PLAYLISTS,
     PAYWALL,
     WEIGHT_SETUP,
     WEIGHT_CUT
@@ -79,25 +82,53 @@ private enum class Screen {
 @Composable
 fun CornerstoneApp(
     userRepository: UserProfileRepository,
-    weightRepository: WeightRepository
+    weightRepository: WeightRepository,
+    comboLibraryRepository: ComboLibraryRepository
 ) {
     val profile by userRepository.profile.collectAsStateWithLifecycle(initialValue = null)
     val weightEntries by weightRepository.entries.collectAsStateWithLifecycle(initialValue = emptyList())
+
+    val currentProfile = profile
 
     var screen by remember { mutableStateOf(Screen.HOME) }
     var secondsPerCombo by remember { mutableIntStateOf(0) }
     var cutStatus by remember { mutableStateOf<CutStatus?>(null) }
 
+    /*
+     * This is the important new state.
+     *
+     * null = normal AI-generated session
+     * not null = playlist session
+     */
+    var playlistSessionCombos by remember {
+        mutableStateOf<List<Combo>?>(null)
+    }
+
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(screen, weightEntries, profile?.targetWeightKg, profile?.fightDateEpochDay) {
+    LaunchedEffect(
+        screen,
+        weightEntries,
+        currentProfile?.targetWeightKg,
+        currentProfile?.fightDateEpochDay
+    ) {
         if (screen == Screen.WEIGHT_CUT) {
             cutStatus = weightRepository.computeStatus()
         }
     }
 
     when {
-        profile == null || !profile!!.onboardingComplete -> {
+        currentProfile == null || !currentProfile.introSeen -> {
+            IntroStoryScreen(
+                onFinished = {
+                    scope.launch {
+                        userRepository.markIntroSeen()
+                    }
+                }
+            )
+        }
+
+        !currentProfile.onboardingComplete -> {
             val onboardingVm: OnboardingViewModel = viewModel(
                 factory = OnboardingViewModel.Factory(userRepository)
             )
@@ -109,25 +140,68 @@ fun CornerstoneApp(
         }
 
         else -> {
-            val currentProfile = profile!!
-
-            // Decides where the weight-cut card sends the user.
-            // Free users hit the paywall first; Pro users go straight in.
             fun openWeightCut() {
                 screen = when {
                     !currentProfile.isPro -> Screen.PAYWALL
+
                     currentProfile.targetWeightKg != null &&
                             currentProfile.fightDateEpochDay != null -> Screen.WEIGHT_CUT
+
                     else -> Screen.WEIGHT_SETUP
                 }
+            }
+
+            fun finishSessionAndGoHome() {
+                scope.launch {
+                    userRepository.incrementSessionsCompleted()
+                }
+
+                playlistSessionCombos = null
+                screen = Screen.HOME
+            }
+
+            fun exitSessionAndGoHome() {
+                playlistSessionCombos = null
+                screen = Screen.HOME
             }
 
             when (screen) {
                 Screen.HOME -> HomeScreen(
                     profile = currentProfile,
-                    onStartSession = { screen = Screen.DURATION },
-                    onOpenGlossary = { screen = Screen.GLOSSARY },
-                    onOpenWeightCut = { openWeightCut() }
+                    onStartSession = {
+                        playlistSessionCombos = null
+                        screen = Screen.DURATION
+                    },
+                    onOpenPlaylists = {
+                        screen = Screen.PLAYLISTS
+                    },
+                    onOpenGlossary = {
+                        screen = Screen.GLOSSARY
+                    },
+                    onOpenWeightCut = {
+                        openWeightCut()
+                    }
+                )
+
+                Screen.PLAYLISTS -> PlaylistsScreen(
+                    repository = comboLibraryRepository,
+                    onBack = {
+                        screen = Screen.HOME
+                    },
+                    onRunPlaylist = { playlistCombos ->
+                        playlistSessionCombos = playlistCombos.toSessionCombos()
+
+                        /*
+                         * Your existing timer needs secondsPerCombo.
+                         * Normal AI sessions get this from DurationPickerScreen.
+                         * Playlist sessions currently run directly, so we give them a safe default.
+                         */
+                        if (secondsPerCombo <= 0) {
+                            secondsPerCombo = 30
+                        }
+
+                        screen = Screen.SESSION
+                    }
                 )
 
                 Screen.DURATION -> DurationPickerScreen(
@@ -135,59 +209,84 @@ fun CornerstoneApp(
                         secondsPerCombo = seconds
                         screen = Screen.SESSION
                     },
-                    onExit = { screen = Screen.HOME }
+                    onExit = {
+                        playlistSessionCombos = null
+                        screen = Screen.HOME
+                    }
                 )
 
                 Screen.SESSION -> {
-                    val sessionVm: SessionViewModel = viewModel(key = "session")
-                    val state by sessionVm.state.collectAsStateWithLifecycle()
+                    val currentPlaylistSessionCombos = playlistSessionCombos
 
-                    LaunchedEffect(Unit) {
-                        sessionVm.load(
-                            sport = currentProfile.sport,
-                            level = currentProfile.level,
-                            dominance = currentProfile.dominance,
-                            stance = currentProfile.stance
+                    if (currentPlaylistSessionCombos != null) {
+                        SessionScreen(
+                            combos = currentPlaylistSessionCombos,
+                            secondsPerCombo = secondsPerCombo,
+                            onFinishSession = {
+                                finishSessionAndGoHome()
+                            },
+                            onExit = {
+                                exitSessionAndGoHome()
+                            }
                         )
-                    }
+                    } else {
+                        val sessionVm: SessionViewModel = viewModel(key = "session")
+                        val state by sessionVm.state.collectAsStateWithLifecycle()
 
-                    when (val s = state) {
-                        is SessionViewModel.State.Loading -> {
-                            GeneratingScreen()
+                        LaunchedEffect(Unit) {
+                            sessionVm.load(
+                                sport = currentProfile.sport,
+                                level = currentProfile.level,
+                                dominance = currentProfile.dominance,
+                                stance = currentProfile.stance
+                            )
                         }
 
-                        is SessionViewModel.State.Ready -> {
-                            SessionScreen(
-                                combos = s.combos,
-                                secondsPerCombo = secondsPerCombo,
-                                onFinishSession = {
-                                    scope.launch {
-                                        userRepository.incrementSessionsCompleted()
+                        when (val s = state) {
+                            is SessionViewModel.State.Loading -> {
+                                GeneratingScreen()
+                            }
+
+                            is SessionViewModel.State.Ready -> {
+                                SessionScreen(
+                                    combos = s.combos,
+                                    secondsPerCombo = secondsPerCombo,
+                                    onFinishSession = {
+                                        finishSessionAndGoHome()
+                                    },
+                                    onExit = {
+                                        exitSessionAndGoHome()
                                     }
-                                    screen = Screen.HOME
-                                },
-                                onExit = { screen = Screen.HOME }
-                            )
+                                )
+                            }
                         }
                     }
                 }
 
                 Screen.GLOSSARY -> GlossaryScreen(
-                    onExit = { screen = Screen.HOME }
+                    onExit = {
+                        screen = Screen.HOME
+                    }
                 )
 
                 Screen.PAYWALL -> PaywallScreen(
                     onProEntitled = {
                         scope.launch {
                             userRepository.setPro(true)
-                            // After a verified purchase, route to setup or the cut screen.
+
                             screen = if (
                                 currentProfile.targetWeightKg != null &&
                                 currentProfile.fightDateEpochDay != null
-                            ) Screen.WEIGHT_CUT else Screen.WEIGHT_SETUP
+                            ) {
+                                Screen.WEIGHT_CUT
+                            } else {
+                                Screen.WEIGHT_SETUP
+                            }
                         }
                     },
-                    onExit = { screen = Screen.HOME }
+                    onExit = {
+                        screen = Screen.HOME
+                    }
                 )
 
                 Screen.WEIGHT_SETUP -> WeightSetupScreen(
@@ -198,11 +297,14 @@ fun CornerstoneApp(
                                 fightDate = LocalDate.now().plusDays(fightInDays.toLong()),
                                 useKg = useKg
                             )
+
                             cutStatus = weightRepository.computeStatus()
                             screen = Screen.WEIGHT_CUT
                         }
                     },
-                    onExit = { screen = Screen.HOME }
+                    onExit = {
+                        screen = Screen.HOME
+                    }
                 )
 
                 Screen.WEIGHT_CUT -> WeightCutScreen(
@@ -215,7 +317,9 @@ fun CornerstoneApp(
                             cutStatus = weightRepository.computeStatus()
                         }
                     },
-                    onExit = { screen = Screen.HOME }
+                    onExit = {
+                        screen = Screen.HOME
+                    }
                 )
             }
         }
@@ -228,7 +332,12 @@ private fun GeneratingScreen() {
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(colors = listOf(Color(0xFF161518), InkBlack))
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF161518),
+                        InkBlack
+                    )
+                )
             ),
         contentAlignment = Alignment.Center
     ) {

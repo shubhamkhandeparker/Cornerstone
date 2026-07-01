@@ -8,14 +8,21 @@ import kotlinx.coroutines.flow.Flow
  */
 class UserProfileRepository(private val dao: UserProfileDao) {
 
-    // Live stream of the profile — UI reacts automatically to changes.
     val profile: Flow<UserProfile?> = dao.observeProfile()
 
     suspend fun getProfile(): UserProfile? = dao.getProfile()
 
     suspend fun saveProfile(profile: UserProfile) = dao.saveProfile(profile)
 
-    // Convenience: save the onboarding answers and mark it done.
+    suspend fun markIntroSeen() {
+        val existing = dao.getProfile() ?: UserProfile()
+        dao.saveProfile(
+            existing.copy(
+                introSeen = true
+            )
+        )
+    }
+
     suspend fun completeOnboarding(
         sport: String,
         level: String,
@@ -23,6 +30,7 @@ class UserProfileRepository(private val dao: UserProfileDao) {
         stance: String
     ) {
         val existing = dao.getProfile() ?: UserProfile()
+
         dao.saveProfile(
             existing.copy(
                 sport = sport,
@@ -34,17 +42,23 @@ class UserProfileRepository(private val dao: UserProfileDao) {
         )
     }
 
-    // Called when a training session finishes — increments the counter.
     suspend fun incrementSessionsCompleted() {
         val existing = dao.getProfile() ?: return
+
         dao.saveProfile(
-            existing.copy(sessionsCompleted = existing.sessionsCompleted + 1)
+            existing.copy(
+                sessionsCompleted = existing.sessionsCompleted + 1
+            )
         )
     }
 
-    // Flip on Pro access (called when the user upgrades).
     suspend fun setPro(isPro: Boolean) {
         val existing = dao.getProfile() ?: UserProfile()
-        dao.saveProfile(existing.copy(isPro = isPro))
+
+        dao.saveProfile(
+            existing.copy(
+                isPro = isPro
+            )
+        )
     }
 }

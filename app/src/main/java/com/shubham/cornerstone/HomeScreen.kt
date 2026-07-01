@@ -38,6 +38,7 @@ import com.shubham.cornerstone.ui.theme.InkBlack
 fun HomeScreen(
     profile: UserProfile,
     onStartSession: () -> Unit,
+    onOpenPlaylists: () -> Unit,
     onOpenGlossary: () -> Unit,
     onOpenWeightCut: () -> Unit
 ) {
@@ -116,6 +117,12 @@ fun HomeScreen(
 
             Spacer(Modifier.height(20.dp))
 
+            PlaylistsCard(
+                onClick = onOpenPlaylists
+            )
+
+            Spacer(Modifier.height(14.dp))
+
             WeightCutCard(
                 hasPlan = profile.targetWeightKg != null && profile.fightDateEpochDay != null,
                 onClick = onOpenWeightCut
@@ -126,6 +133,46 @@ fun HomeScreen(
             GlossaryCard(
                 sport = profile.sport,
                 onClick = onOpenGlossary
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlaylistsCard(
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        color = Charcoal
+    ) {
+        Row(
+            modifier = Modifier.padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = "Combo playlists",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                Text(
+                    text = "Save coach combos and train them later",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Text(
+                text = "->",
+                fontSize = 20.sp,
+                color = FightRed
             )
         }
     }
