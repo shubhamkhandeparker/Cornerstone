@@ -91,12 +91,32 @@ fun CornerstoneApp(
     val currentProfile = profile
 
     var screen by remember { mutableStateOf(Screen.HOME) }
+
     var secondsPerCombo by remember { mutableIntStateOf(0) }
+
+    /*
+     * New:
+     * User-selected number of combos for AI-generated sessions.
+     * This controls whether timer shows 1/6, 1/10, 1/20, etc.
+     */
+    var combosPerSession by remember { mutableIntStateOf(6) }
+
+    /*
+     * New:
+     * Temporary in-memory AI session offset.
+     *
+     * Example:
+     * Session 1 with 6 combos uses offset 0.
+     * After finish, offset becomes 6.
+     * Session 2 starts from deeper combo progression.
+     *
+     * This resets when the app process is killed, which matches what you wanted.
+     */
+    var aiSessionOffset by remember { mutableIntStateOf(0) }
+
     var cutStatus by remember { mutableStateOf<CutStatus?>(null) }
 
     /*
-     * This is the important new state.
-     *
      * null = normal AI-generated session
      * not null = playlist session
      */
@@ -160,6 +180,11 @@ fun CornerstoneApp(
                 screen = Screen.HOME
             }
 
+            fun finishAiSessionAndGoHome() {
+                aiSessionOffset += combosPerSession
+                finishSessionAndGoHome()
+            }
+
             fun exitSessionAndGoHome() {
                 playlistSessionCombos = null
                 screen = Screen.HOME
@@ -192,9 +217,8 @@ fun CornerstoneApp(
                         playlistSessionCombos = playlistCombos.toSessionCombos()
 
                         /*
-                         * Your existing timer needs secondsPerCombo.
-                         * Normal AI sessions get this from DurationPickerScreen.
-                         * Playlist sessions currently run directly, so we give them a safe default.
+                         * Playlist sessions currently run directly.
+                         * If user never picked duration, use safe default.
                          */
                         if (secondsPerCombo <= 0) {
                             secondsPerCombo = 30
@@ -205,8 +229,10 @@ fun CornerstoneApp(
                 )
 
                 Screen.DURATION -> DurationPickerScreen(
-                    onStart = { seconds ->
+                    onStart = { seconds, comboCount ->
                         secondsPerCombo = seconds
+                        combosPerSession = comboCount
+                        playlistSessionCombos = null
                         screen = Screen.SESSION
                     },
                     onExit = {
@@ -233,12 +259,21 @@ fun CornerstoneApp(
                         val sessionVm: SessionViewModel = viewModel(key = "session")
                         val state by sessionVm.state.collectAsStateWithLifecycle()
 
-                        LaunchedEffect(Unit) {
+                        LaunchedEffect(
+                            currentProfile.sport,
+                            currentProfile.level,
+                            currentProfile.dominance,
+                            currentProfile.stance,
+                            combosPerSession,
+                            aiSessionOffset
+                        ) {
                             sessionVm.load(
                                 sport = currentProfile.sport,
                                 level = currentProfile.level,
                                 dominance = currentProfile.dominance,
-                                stance = currentProfile.stance
+                                stance = currentProfile.stance,
+                                count = combosPerSession,
+                                offset = aiSessionOffset
                             )
                         }
 
@@ -252,7 +287,7 @@ fun CornerstoneApp(
                                     combos = s.combos,
                                     secondsPerCombo = secondsPerCombo,
                                     onFinishSession = {
-                                        finishSessionAndGoHome()
+                                        finishAiSessionAndGoHome()
                                     },
                                     onExit = {
                                         exitSessionAndGoHome()
