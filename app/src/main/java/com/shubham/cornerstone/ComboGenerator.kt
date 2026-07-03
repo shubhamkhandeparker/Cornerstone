@@ -1,15 +1,18 @@
 package com.shubham.cornerstone
 
 import android.util.Log
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 
 /**
  * Generates a fighter-aware training session using Groq AI.
  *
- * New behavior:
+ * Behavior:
  * - Can generate custom session length.
  * - Uses offset/session progression so every new session does not feel like it starts from combo 1 again.
  * - Falls back to a larger local combo bank if AI fails.
+ * - Uses timeout so loading screen does not get stuck forever if AI/network is slow.
+ * - Logs AI/fallback status safely without exposing the API key.
  */
 class ComboGenerator {
 
@@ -33,17 +36,29 @@ class ComboGenerator {
             maximumValue = 50
         )
 
+        Log.d(
+            "ComboGenerator",
+            "Groq key length = ${BuildConfig.GROQ_API_KEY.length}"
+        )
+
         return try {
-            val aiCombos = callGroq(
-                sport = sport,
-                level = level,
-                dominance = dominance,
-                stance = stance,
-                count = safeCount,
-                offset = offset
-            )
+            val aiCombos = withTimeoutOrNull(15_000L) {
+                callGroq(
+                    sport = sport,
+                    level = level,
+                    dominance = dominance,
+                    stance = stance,
+                    count = safeCount,
+                    offset = offset
+                )
+            } ?: emptyList()
 
             if (aiCombos.isNotEmpty()) {
+                Log.d(
+                    "ComboGenerator",
+                    "AI success. Groq returned ${aiCombos.size} combos."
+                )
+
                 aiCombos
                     .take(safeCount)
                     .mapIndexed { index, c ->
@@ -54,11 +69,16 @@ class ComboGenerator {
                                 index = index,
                                 total = safeCount
                             ),
-                            moves = c.moves,
-                            cue = c.cue
+                            moves = c.moves.trim(),
+                            cue = c.cue.trim()
                         )
                     }
             } else {
+                Log.w(
+                    "ComboGenerator",
+                    "AI timeout or empty response, using fallback"
+                )
+
                 fallback(
                     sport = sport,
                     count = safeCount,
@@ -66,7 +86,11 @@ class ComboGenerator {
                 )
             }
         } catch (e: Exception) {
-            Log.e("ComboGenerator", "AI generation failed, using fallback", e)
+            Log.e(
+                "ComboGenerator",
+                "AI generation failed, using fallback",
+                e
+            )
 
             fallback(
                 sport = sport,
@@ -106,8 +130,8 @@ class ComboGenerator {
     private fun arsenalFor(sport: String): String = when (sport) {
         "Boxing" -> """
             Boxing uses ONLY hands: jab, cross, lead hook, rear hook,
-            lead uppercut, rear uppercut, plus head movement such as slip,
-            roll, pull, pivot, step back, and angle exits.
+            lead uppercut, rear uppercut, body jab, body cross, plus head
+            movement such as slip, roll, pull, pivot, step back, and angle exits.
             No kicks, knees, elbows, or grappling.
         """.trimIndent()
 
@@ -185,7 +209,12 @@ class ComboGenerator {
             - work
             - finish
 
-            Respond with ONLY valid JSON, no markdown, in this exact shape:
+            JSON RULES:
+            - Respond with ONLY valid JSON.
+            - Do not include markdown.
+            - Do not include explanation.
+            - Do not include code fences.
+            - Use this exact shape:
             {"combos":[{"phase":"warmup","moves":"Jab - Cross","cue":"Stay loose and return to guard."}]}
         """.trimIndent()
 
@@ -211,14 +240,32 @@ class ComboGenerator {
         val content = response.choices.firstOrNull()?.message?.content?.trim()
             ?: return emptyList()
 
-        val cleaned = content
+        Log.d(
+            "ComboGenerator",
+            "Raw AI response length = ${content.length}"
+        )
+
+        val cleaned = extractJsonObject(content)
+
+        val session = json.decodeFromString<AiSession>(cleaned)
+        return session.combos
+    }
+
+    private fun extractJsonObject(raw: String): String {
+        val withoutMarkdown = raw
             .removePrefix("```json")
             .removePrefix("```")
             .removeSuffix("```")
             .trim()
 
-        val session = json.decodeFromString<AiSession>(cleaned)
-        return session.combos
+        val firstBrace = withoutMarkdown.indexOf('{')
+        val lastBrace = withoutMarkdown.lastIndexOf('}')
+
+        return if (firstBrace >= 0 && lastBrace >= firstBrace) {
+            withoutMarkdown.substring(firstBrace, lastBrace + 1)
+        } else {
+            withoutMarkdown
+        }
     }
 
     private fun fallback(
@@ -226,6 +273,11 @@ class ComboGenerator {
         count: Int,
         offset: Int
     ): List<Combo> {
+        Log.w(
+            "ComboGenerator",
+            "Fallback active. sport=$sport count=$count offset=$offset"
+        )
+
         val bank = fallbackBankForSport(sport)
 
         return List(count) { index ->

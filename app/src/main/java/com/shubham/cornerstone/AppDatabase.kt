@@ -17,9 +17,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         WeightEntry::class,
         SavedComboEntity::class,
         ComboPlaylistEntity::class,
-        PlaylistComboEntity::class
+        PlaylistComboEntity::class,
+        TrainingSessionEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -27,6 +28,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun userProfileDao(): UserProfileDao
     abstract fun weightDao(): WeightDao
     abstract fun comboLibraryDao(): ComboLibraryDao
+    abstract fun trainingSessionDao(): TrainingSessionDao
 
     companion object {
         @Volatile
@@ -83,6 +85,25 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `training_session` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `sessionType` TEXT NOT NULL,
+                        `sport` TEXT NOT NULL,
+                        `comboCount` INTEGER NOT NULL,
+                        `secondsPerCombo` INTEGER NOT NULL,
+                        `durationSeconds` INTEGER NOT NULL,
+                        `localDate` TEXT NOT NULL,
+                        `finishedAtEpochMs` INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 Room.databaseBuilder(
@@ -92,7 +113,8 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                     .addMigrations(
                         MIGRATION_6_7,
-                        MIGRATION_7_8
+                        MIGRATION_7_8,
+                        MIGRATION_8_9
                     )
                     .fallbackToDestructiveMigration()
                     .build()

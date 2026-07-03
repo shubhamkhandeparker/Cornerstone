@@ -44,12 +44,23 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val database = AppDatabase.get(applicationContext)
-        val userRepository = UserProfileRepository(database.userProfileDao())
+
+        val userRepository = UserProfileRepository(
+            database.userProfileDao()
+        )
+
         val weightRepository = WeightRepository(
             weightDao = database.weightDao(),
             profileDao = database.userProfileDao()
         )
-        val comboLibraryRepository = ComboLibraryRepository(database.comboLibraryDao())
+
+        val comboLibraryRepository = ComboLibraryRepository(
+            database.comboLibraryDao()
+        )
+
+        val trainingSessionRepository = TrainingSessionRepository(
+            database.trainingSessionDao()
+        )
 
         setContent {
             CornerstoneTheme {
@@ -60,7 +71,8 @@ class MainActivity : ComponentActivity() {
                     CornerstoneApp(
                         userRepository = userRepository,
                         weightRepository = weightRepository,
-                        comboLibraryRepository = comboLibraryRepository
+                        comboLibraryRepository = comboLibraryRepository,
+                        trainingSessionRepository = trainingSessionRepository
                     )
                 }
             }
@@ -83,26 +95,44 @@ private enum class Screen {
 fun CornerstoneApp(
     userRepository: UserProfileRepository,
     weightRepository: WeightRepository,
-    comboLibraryRepository: ComboLibraryRepository
+    comboLibraryRepository: ComboLibraryRepository,
+    trainingSessionRepository: TrainingSessionRepository
 ) {
-    val profile by userRepository.profile.collectAsStateWithLifecycle(initialValue = null)
-    val weightEntries by weightRepository.entries.collectAsStateWithLifecycle(initialValue = emptyList())
+    val profile by userRepository.profile.collectAsStateWithLifecycle(
+        initialValue = null
+    )
+
+    val weightEntries by weightRepository.entries.collectAsStateWithLifecycle(
+        initialValue = emptyList()
+    )
+
+    val todaySessionCount by trainingSessionRepository
+        .observeTodaySessionCount()
+        .collectAsStateWithLifecycle(initialValue = 0)
+
+    val todayDurationSeconds by trainingSessionRepository
+        .observeTodayDurationSeconds()
+        .collectAsStateWithLifecycle(initialValue = 0)
 
     val currentProfile = profile
 
-    var screen by remember { mutableStateOf(Screen.HOME) }
+    var screen by remember {
+        mutableStateOf(Screen.HOME)
+    }
 
-    var secondsPerCombo by remember { mutableIntStateOf(0) }
+    var secondsPerCombo by remember {
+        mutableIntStateOf(0)
+    }
 
     /*
-     * New:
      * User-selected number of combos for AI-generated sessions.
      * This controls whether timer shows 1/6, 1/10, 1/20, etc.
      */
-    var combosPerSession by remember { mutableIntStateOf(6) }
+    var combosPerSession by remember {
+        mutableIntStateOf(6)
+    }
 
     /*
-     * New:
      * Temporary in-memory AI session offset.
      *
      * Example:
@@ -110,11 +140,15 @@ fun CornerstoneApp(
      * After finish, offset becomes 6.
      * Session 2 starts from deeper combo progression.
      *
-     * This resets when the app process is killed, which matches what you wanted.
+     * This resets when the app process is killed.
      */
-    var aiSessionOffset by remember { mutableIntStateOf(0) }
+    var aiSessionOffset by remember {
+        mutableIntStateOf(0)
+    }
 
-    var cutStatus by remember { mutableStateOf<CutStatus?>(null) }
+    var cutStatus by remember {
+        mutableStateOf<CutStatus?>(null)
+    }
 
     /*
      * null = normal AI-generated session
@@ -171,21 +205,51 @@ fun CornerstoneApp(
                 }
             }
 
-            fun finishSessionAndGoHome() {
+            fun finishSessionAndGoHome(
+                sessionType: String,
+                comboCount: Int
+            ) {
                 scope.launch {
                     userRepository.incrementSessionsCompleted()
+
+                    trainingSessionRepository.logFinishedSession(
+                        sessionType = sessionType,
+                        sport = currentProfile.sport,
+                        comboCount = comboCount,
+                        secondsPerCombo = secondsPerCombo
+                    )
                 }
 
                 playlistSessionCombos = null
                 screen = Screen.HOME
             }
 
-            fun finishAiSessionAndGoHome() {
-                aiSessionOffset += combosPerSession
-                finishSessionAndGoHome()
+            fun finishAiSessionAndGoHome(
+                actualComboCount: Int
+            ) {
+                aiSessionOffset += actualComboCount
+
+                finishSessionAndGoHome(
+                    sessionType = "ai",
+                    comboCount = actualComboCount
+                )
+            }
+
+            fun finishPlaylistSessionAndGoHome(
+                actualComboCount: Int
+            ) {
+                finishSessionAndGoHome(
+                    sessionType = "playlist",
+                    comboCount = actualComboCount
+                )
             }
 
             fun exitSessionAndGoHome() {
+                /*
+                 * Important:
+                 * Exit does NOT log training history.
+                 * Only finished sessions are saved.
+                 */
                 playlistSessionCombos = null
                 screen = Screen.HOME
             }
@@ -193,6 +257,8 @@ fun CornerstoneApp(
             when (screen) {
                 Screen.HOME -> HomeScreen(
                     profile = currentProfile,
+                    todaySessionCount = todaySessionCount,
+                    todayDurationSeconds = todayDurationSeconds,
                     onStartSession = {
                         playlistSessionCombos = null
                         screen = Screen.DURATION
@@ -249,14 +315,19 @@ fun CornerstoneApp(
                             combos = currentPlaylistSessionCombos,
                             secondsPerCombo = secondsPerCombo,
                             onFinishSession = {
-                                finishSessionAndGoHome()
+                                finishPlaylistSessionAndGoHome(
+                                    actualComboCount = currentPlaylistSessionCombos.size
+                                )
                             },
                             onExit = {
                                 exitSessionAndGoHome()
                             }
                         )
                     } else {
-                        val sessionVm: SessionViewModel = viewModel(key = "session")
+                        val sessionVm: SessionViewModel = viewModel(
+                            key = "session"
+                        )
+
                         val state by sessionVm.state.collectAsStateWithLifecycle()
 
                         LaunchedEffect(
@@ -287,7 +358,9 @@ fun CornerstoneApp(
                                     combos = s.combos,
                                     secondsPerCombo = secondsPerCombo,
                                     onFinishSession = {
-                                        finishAiSessionAndGoHome()
+                                        finishAiSessionAndGoHome(
+                                            actualComboCount = s.combos.size
+                                        )
                                     },
                                     onExit = {
                                         exitSessionAndGoHome()
@@ -380,9 +453,13 @@ private fun GeneratingScreen() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            CircularProgressIndicator(color = FightRed)
+            CircularProgressIndicator(
+                color = FightRed
+            )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(
+                Modifier.height(24.dp)
+            )
 
             Text(
                 text = "Building tonight's session...",
@@ -391,7 +468,9 @@ private fun GeneratingScreen() {
                 color = MaterialTheme.colorScheme.onBackground
             )
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(
+                Modifier.height(6.dp)
+            )
 
             Text(
                 text = "Adapting to your level",

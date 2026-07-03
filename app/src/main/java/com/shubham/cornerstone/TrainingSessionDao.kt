@@ -1,0 +1,51 @@
+package com.shubham.cornerstone
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface TrainingSessionDao {
+
+    @Insert
+    suspend fun insertSession(session: TrainingSessionEntity): Long
+
+    @Query(
+        """
+        SELECT COUNT(*) 
+        FROM training_session 
+        WHERE localDate = :localDate
+        """
+    )
+    fun observeSessionCountForDate(localDate: String): Flow<Int>
+
+    @Query(
+        """
+        SELECT COALESCE(SUM(durationSeconds), 0) 
+        FROM training_session 
+        WHERE localDate = :localDate
+        """
+    )
+    fun observeTotalDurationSecondsForDate(localDate: String): Flow<Int>
+
+    @Query(
+        """
+        SELECT * 
+        FROM training_session 
+        ORDER BY finishedAtEpochMs DESC 
+        LIMIT :limit
+        """
+    )
+    fun observeRecentSessions(limit: Int = 20): Flow<List<TrainingSessionEntity>>
+
+    @Query(
+        """
+        SELECT * 
+        FROM training_session 
+        WHERE localDate = :localDate
+        ORDER BY finishedAtEpochMs DESC
+        """
+    )
+    fun observeSessionsForDate(localDate: String): Flow<List<TrainingSessionEntity>>
+}

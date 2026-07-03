@@ -37,6 +37,8 @@ import com.shubham.cornerstone.ui.theme.InkBlack
 @Composable
 fun HomeScreen(
     profile: UserProfile,
+    todaySessionCount: Int,
+    todayDurationSeconds: Int,
     onStartSession: () -> Unit,
     onOpenPlaylists: () -> Unit,
     onOpenGlossary: () -> Unit,
@@ -47,7 +49,10 @@ fun HomeScreen(
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    colors = listOf(Color(0xFF161518), InkBlack)
+                    colors = listOf(
+                        Color(0xFF161518),
+                        InkBlack
+                    )
                 )
             )
     ) {
@@ -97,7 +102,14 @@ fun HomeScreen(
                 }
             }
 
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(24.dp))
+
+            TodayTrainingCard(
+                todaySessionCount = todaySessionCount,
+                todayDurationSeconds = todayDurationSeconds
+            )
+
+            Spacer(Modifier.height(18.dp))
 
             SessionCard(
                 sport = profile.sport,
@@ -106,16 +118,16 @@ fun HomeScreen(
                 onClick = onStartSession
             )
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "No equipment needed. 20 minutes. Let's go.",
+                text = "No equipment needed. Build your round and get moving.",
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(16.dp))
 
             PlaylistsCard(
                 onClick = onOpenPlaylists
@@ -139,13 +151,108 @@ fun HomeScreen(
 }
 
 @Composable
+private fun TodayTrainingCard(
+    todaySessionCount: Int,
+    todayDurationSeconds: Int
+) {
+    val minutes = todayDurationSeconds / 60
+    val seconds = todayDurationSeconds % 60
+
+    val durationText = when {
+        todayDurationSeconds <= 0 -> "0 min"
+        minutes <= 0 -> "${seconds}s"
+        seconds == 0 -> "$minutes min"
+        else -> "$minutes min ${seconds}s"
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = FightRed.copy(alpha = 0.13f)
+    ) {
+        Row(
+            modifier = Modifier.padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = "Today’s work",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                Spacer(Modifier.height(4.dp))
+
+                Text(
+                    text = if (todaySessionCount == 0) {
+                        "No sessions finished yet"
+                    } else {
+                        "Keep the streak alive"
+                    },
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TodayStatBlock(
+                    value = todaySessionCount.toString(),
+                    label = if (todaySessionCount == 1) {
+                        "session"
+                    } else {
+                        "sessions"
+                    }
+                )
+
+                Spacer(Modifier.width(18.dp))
+
+                TodayStatBlock(
+                    value = durationText,
+                    label = "trained"
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TodayStatBlock(
+    value: String,
+    label: String
+) {
+    Column(
+        horizontalAlignment = Alignment.End
+    ) {
+        Text(
+            text = value,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Black,
+            color = FightRed
+        )
+
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
 private fun PlaylistsCard(
     onClick: () -> Unit
 ) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
+            .clickable {
+                onClick()
+            },
         shape = RoundedCornerShape(16.dp),
         color = Charcoal
     ) {
@@ -186,7 +293,9 @@ private fun WeightCutCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
+            .clickable {
+                onClick()
+            },
         shape = RoundedCornerShape(16.dp),
         color = Charcoal
     ) {
@@ -219,12 +328,19 @@ private fun WeightCutCard(
                 color = FightRed.copy(alpha = 0.16f)
             ) {
                 Text(
-                    text = if (hasPlan) "TRACK" else "SET UP",
+                    text = if (hasPlan) {
+                        "TRACK"
+                    } else {
+                        "SET UP"
+                    },
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.sp,
                     color = FightRed,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                    modifier = Modifier.padding(
+                        horizontal = 12.dp,
+                        vertical = 7.dp
+                    )
                 )
             }
         }
@@ -239,7 +355,9 @@ private fun GlossaryCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
+            .clickable {
+                onClick()
+            },
         shape = RoundedCornerShape(16.dp),
         color = Charcoal
     ) {
@@ -298,9 +416,11 @@ private fun SessionCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(280.dp)
+            .height(250.dp)
             .clip(RoundedCornerShape(24.dp))
-            .clickable { onClick() },
+            .clickable {
+                onClick()
+            },
         shape = RoundedCornerShape(24.dp),
         color = Charcoal
     ) {
@@ -322,7 +442,10 @@ private fun SessionCard(
                 modifier = Modifier
                     .size(220.dp)
                     .blur(90.dp)
-                    .background(FightRed.copy(alpha = 0.20f), CircleShape)
+                    .background(
+                        FightRed.copy(alpha = 0.20f),
+                        CircleShape
+                    )
                     .align(Alignment.BottomEnd)
             )
 
@@ -332,7 +455,9 @@ private fun SessionCard(
                     .padding(24.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Box(
                         modifier = Modifier
                             .size(8.dp)
@@ -354,8 +479,8 @@ private fun SessionCard(
                 Column {
                     Text(
                         text = "$sport\nShadow + Drills",
-                        fontSize = 34.sp,
-                        lineHeight = 38.sp,
+                        fontSize = 32.sp,
+                        lineHeight = 36.sp,
                         fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.onBackground
                     )
