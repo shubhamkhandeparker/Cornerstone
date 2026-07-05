@@ -62,6 +62,11 @@ class MainActivity : ComponentActivity() {
             database.trainingSessionDao()
         )
 
+        val progressPhotoRepository = ProgressPhotoRepository(
+            dao = database.progressPhotoDao(),
+            appContext = applicationContext
+        )
+
         setContent {
             CornerstoneTheme {
                 Surface(
@@ -72,7 +77,8 @@ class MainActivity : ComponentActivity() {
                         userRepository = userRepository,
                         weightRepository = weightRepository,
                         comboLibraryRepository = comboLibraryRepository,
-                        trainingSessionRepository = trainingSessionRepository
+                        trainingSessionRepository = trainingSessionRepository,
+                        progressPhotoRepository = progressPhotoRepository
                     )
                 }
             }
@@ -88,7 +94,8 @@ private enum class Screen {
     PLAYLISTS,
     PAYWALL,
     WEIGHT_SETUP,
-    WEIGHT_CUT
+    WEIGHT_CUT,
+    PROGRESS_CAMERA
 }
 
 @Composable
@@ -96,7 +103,8 @@ fun CornerstoneApp(
     userRepository: UserProfileRepository,
     weightRepository: WeightRepository,
     comboLibraryRepository: ComboLibraryRepository,
-    trainingSessionRepository: TrainingSessionRepository
+    trainingSessionRepository: TrainingSessionRepository,
+    progressPhotoRepository: ProgressPhotoRepository
 ) {
     val profile by userRepository.profile.collectAsStateWithLifecycle(
         initialValue = null
@@ -124,24 +132,10 @@ fun CornerstoneApp(
         mutableIntStateOf(0)
     }
 
-    /*
-     * User-selected number of combos for AI-generated sessions.
-     * This controls whether timer shows 1/6, 1/10, 1/20, etc.
-     */
     var combosPerSession by remember {
         mutableIntStateOf(6)
     }
 
-    /*
-     * Temporary in-memory AI session offset.
-     *
-     * Example:
-     * Session 1 with 6 combos uses offset 0.
-     * After finish, offset becomes 6.
-     * Session 2 starts from deeper combo progression.
-     *
-     * This resets when the app process is killed.
-     */
     var aiSessionOffset by remember {
         mutableIntStateOf(0)
     }
@@ -150,10 +144,6 @@ fun CornerstoneApp(
         mutableStateOf<CutStatus?>(null)
     }
 
-    /*
-     * null = normal AI-generated session
-     * not null = playlist session
-     */
     var playlistSessionCombos by remember {
         mutableStateOf<List<Combo>?>(null)
     }
@@ -205,6 +195,14 @@ fun CornerstoneApp(
                 }
             }
 
+            fun openProgressCamera() {
+                screen = if (!currentProfile.isPro) {
+                    Screen.PAYWALL
+                } else {
+                    Screen.PROGRESS_CAMERA
+                }
+            }
+
             fun finishSessionAndGoHome(
                 sessionType: String,
                 comboCount: Int
@@ -245,11 +243,6 @@ fun CornerstoneApp(
             }
 
             fun exitSessionAndGoHome() {
-                /*
-                 * Important:
-                 * Exit does NOT log training history.
-                 * Only finished sessions are saved.
-                 */
                 playlistSessionCombos = null
                 screen = Screen.HOME
             }
@@ -271,6 +264,9 @@ fun CornerstoneApp(
                     },
                     onOpenWeightCut = {
                         openWeightCut()
+                    },
+                    onOpenProgressCamera = {
+                        openProgressCamera()
                     }
                 )
 
@@ -282,10 +278,6 @@ fun CornerstoneApp(
                     onRunPlaylist = { playlistCombos ->
                         playlistSessionCombos = playlistCombos.toSessionCombos()
 
-                        /*
-                         * Playlist sessions currently run directly.
-                         * If user never picked duration, use safe default.
-                         */
                         if (secondsPerCombo <= 0) {
                             secondsPerCombo = 30
                         }
@@ -425,6 +417,13 @@ fun CornerstoneApp(
                             cutStatus = weightRepository.computeStatus()
                         }
                     },
+                    onExit = {
+                        screen = Screen.HOME
+                    }
+                )
+
+                Screen.PROGRESS_CAMERA -> ProgressCameraScreen(
+                    repository = progressPhotoRepository,
                     onExit = {
                         screen = Screen.HOME
                     }

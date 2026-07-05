@@ -16,10 +16,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +36,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -51,7 +51,6 @@ fun PaywallScreen(
     onProEntitled: () -> Unit,
     onExit: () -> Unit
 ) {
-    val scroll = rememberScrollState()
     val context = LocalContext.current
     val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -150,130 +149,149 @@ fun PaywallScreen(
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(
+                    colors = listOf(
                         Color(0xFF1E1416),
                         InkBlack
                     )
                 )
             )
     ) {
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .verticalScroll(scroll)
-                .padding(horizontal = 24.dp)
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.Top
         ) {
-            Spacer(Modifier.height(16.dp))
+            item {
+                Spacer(Modifier.height(16.dp))
 
-            Text(
-                text = "✕",
-                fontSize = 20.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .clickable {
-                        onExit()
-                    }
-                    .padding(8.dp)
-            )
-
-            Spacer(Modifier.height(24.dp))
-
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = FightRed
-            ) {
                 Text(
-                    text = "CORNERSTONE PRO",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 2.sp,
-                    color = Color.White,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                    text = "✕",
+                    fontSize = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .clickable {
+                            onExit()
+                        }
+                        .padding(8.dp)
                 )
+
+                Spacer(Modifier.height(18.dp))
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = FightRed
+                ) {
+                    Text(
+                        text = "CORNERSTONE PRO",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 2.sp,
+                        color = Color.White,
+                        modifier = Modifier.padding(
+                            horizontal = 14.dp,
+                            vertical = 8.dp
+                        )
+                    )
+                }
+
+                Spacer(Modifier.height(22.dp))
+
+                Text(
+                    text = "Make weight.\nEvery time.",
+                    fontSize = 42.sp,
+                    lineHeight = 46.sp,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                Spacer(Modifier.height(14.dp))
+
+                Text(
+                    text = "Your weight cut, tracked and adapted daily — so you never miss the scale or crash-cut last minute.",
+                    fontSize = 16.sp,
+                    lineHeight = 24.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(Modifier.height(30.dp))
             }
 
-            Spacer(Modifier.height(24.dp))
+            item {
+                ProFeature(
+                    title = "Daily pace tracking",
+                    subtitle = "Know exactly how much to cut, every day."
+                )
 
-            Text(
-                text = "Make weight.\nEvery time.",
-                fontSize = 42.sp,
-                lineHeight = 46.sp,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.onBackground
-            )
+                ProFeature(
+                    title = "On-track or behind alerts",
+                    subtitle = "Real-time status so there are no surprises on fight day."
+                )
 
-            Spacer(Modifier.height(14.dp))
+                ProFeature(
+                    title = "Your full weight curve",
+                    subtitle = "See your whole camp at a glance and trust the trend."
+                )
 
-            Text(
-                text = "Your weight cut, tracked and adapted daily — so you never miss the scale or crash-cut last minute.",
-                fontSize = 16.sp,
-                lineHeight = 24.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                ProFeature(
+                    title = "Remembers everything",
+                    subtitle = "Your target, your history, your pace — it compounds over weeks."
+                )
 
-            Spacer(Modifier.height(36.dp))
+                Spacer(Modifier.height(20.dp))
+            }
 
-            ProFeature(
-                title = "Daily pace tracking",
-                subtitle = "Know exactly how much to cut, every day."
-            )
-
-            ProFeature(
-                title = "On-track or behind alerts",
-                subtitle = "Real-time status so there are no surprises on fight day."
-            )
-
-            ProFeature(
-                title = "Your full weight curve",
-                subtitle = "See your whole camp at a glance and trust the trend."
-            )
-
-            ProFeature(
-                title = "Remembers everything",
-                subtitle = "Your target, your history, your pace — it compounds over weeks."
-            )
-
-            Spacer(Modifier.height(36.dp))
-
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                color = Charcoal
-            ) {
-                Row(
-                    modifier = Modifier.padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            item {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = Charcoal
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.Bottom) {
-                            Text(
-                                text = priceText,
-                                fontSize = 32.sp,
-                                fontWeight = FontWeight.Black,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
+                    Row(
+                        modifier = Modifier.padding(20.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.Bottom
+                            ) {
+                                Text(
+                                    text = priceText,
+                                    fontSize = 32.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+
+                                Text(
+                                    text = "/month",
+                                    fontSize = 15.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(
+                                        bottom = 5.dp,
+                                        start = 4.dp
+                                    )
+                                )
+                            }
+
+                            Spacer(Modifier.height(4.dp))
 
                             Text(
-                                text = "/month",
-                                fontSize = 15.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 5.dp, start = 4.dp)
+                                text = "Cancel anytime",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-
-                        Text(
-                            text = "Cancel anytime",
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 }
+
+                Spacer(Modifier.height(18.dp))
             }
 
-            Spacer(Modifier.height(20.dp))
-
-            Column(modifier = Modifier.navigationBarsPadding()) {
+            item {
                 Button(
                     onClick = {
                         when {
@@ -302,7 +320,9 @@ fun PaywallScreen(
                         .fillMaxWidth()
                         .height(58.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = FightRed)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = FightRed
+                    )
                 ) {
                     Text(
                         text = buttonLabel,
@@ -316,12 +336,13 @@ fun PaywallScreen(
                 Text(
                     text = statusText,
                     fontSize = 13.sp,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    lineHeight = 18.sp,
+                    textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(40.dp))
             }
         }
     }
@@ -342,7 +363,9 @@ private fun ProFeature(
             shape = CircleShape,
             color = FightRed.copy(alpha = 0.15f)
         ) {
-            Box(contentAlignment = Alignment.Center) {
+            Box(
+                contentAlignment = Alignment.Center
+            ) {
                 Text(
                     text = "✓",
                     color = FightRed,

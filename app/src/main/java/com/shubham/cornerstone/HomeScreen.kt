@@ -10,12 +10,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -42,8 +45,11 @@ fun HomeScreen(
     onStartSession: () -> Unit,
     onOpenPlaylists: () -> Unit,
     onOpenGlossary: () -> Unit,
-    onOpenWeightCut: () -> Unit
+    onOpenWeightCut: () -> Unit,
+    onOpenProgressCamera: () -> Unit
 ) {
+    val scrollState = rememberScrollState()
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -60,6 +66,8 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
+                .navigationBarsPadding()
+                .verticalScroll(scrollState)
                 .padding(horizontal = 24.dp)
         ) {
             Spacer(Modifier.height(24.dp))
@@ -137,7 +145,8 @@ fun HomeScreen(
 
             WeightCutCard(
                 hasPlan = profile.targetWeightKg != null && profile.fightDateEpochDay != null,
-                onClick = onOpenWeightCut
+                onOpenWeightCut = onOpenWeightCut,
+                onOpenProgressCamera = onOpenProgressCamera
             )
 
             Spacer(Modifier.height(14.dp))
@@ -146,6 +155,8 @@ fun HomeScreen(
                 sport = profile.sport,
                 onClick = onOpenGlossary
             )
+
+            Spacer(Modifier.height(40.dp))
         }
     }
 }
@@ -288,14 +299,11 @@ private fun PlaylistsCard(
 @Composable
 private fun WeightCutCard(
     hasPlan: Boolean,
-    onClick: () -> Unit
+    onOpenWeightCut: () -> Unit,
+    onOpenProgressCamera: () -> Unit
 ) {
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                onClick()
-            },
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = Charcoal
     ) {
@@ -304,7 +312,13 @@ private fun WeightCutCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable {
+                        onOpenWeightCut()
+                    }
+            ) {
                 Text(
                     text = "Weight cut",
                     fontSize = 15.sp,
@@ -323,7 +337,34 @@ private fun WeightCutCard(
                 )
             }
 
+            Spacer(Modifier.width(10.dp))
+
             Surface(
+                modifier = Modifier.clickable {
+                    onOpenProgressCamera()
+                },
+                shape = RoundedCornerShape(999.dp),
+                color = FightRed.copy(alpha = 0.13f)
+            ) {
+                Text(
+                    text = "CAM",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.sp,
+                    color = FightRed,
+                    modifier = Modifier.padding(
+                        horizontal = 12.dp,
+                        vertical = 7.dp
+                    )
+                )
+            }
+
+            Spacer(Modifier.width(8.dp))
+
+            Surface(
+                modifier = Modifier.clickable {
+                    onOpenWeightCut()
+                },
                 shape = RoundedCornerShape(999.dp),
                 color = FightRed.copy(alpha = 0.16f)
             ) {

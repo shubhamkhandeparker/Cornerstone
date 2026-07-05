@@ -18,9 +18,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SavedComboEntity::class,
         ComboPlaylistEntity::class,
         PlaylistComboEntity::class,
-        TrainingSessionEntity::class
+        TrainingSessionEntity::class,
+        ProgressPhotoEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -29,6 +30,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun weightDao(): WeightDao
     abstract fun comboLibraryDao(): ComboLibraryDao
     abstract fun trainingSessionDao(): TrainingSessionDao
+    abstract fun progressPhotoDao(): ProgressPhotoDao
 
     companion object {
         @Volatile
@@ -104,6 +106,23 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `progress_photo` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `filePath` TEXT NOT NULL,
+                        `fileName` TEXT NOT NULL,
+                        `localDate` TEXT NOT NULL,
+                        `weightKg` REAL,
+                        `capturedAtEpochMs` INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 Room.databaseBuilder(
@@ -114,7 +133,8 @@ abstract class AppDatabase : RoomDatabase() {
                     .addMigrations(
                         MIGRATION_6_7,
                         MIGRATION_7_8,
-                        MIGRATION_8_9
+                        MIGRATION_8_9,
+                        MIGRATION_9_10
                     )
                     .fallbackToDestructiveMigration()
                     .build()
