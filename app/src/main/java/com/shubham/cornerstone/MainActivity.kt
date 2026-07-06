@@ -91,6 +91,8 @@ private enum class Screen {
     DURATION,
     SESSION,
     GLOSSARY,
+    TECHNIQUES,
+    TECHNIQUE_DETAIL,
     PLAYLISTS,
     PAYWALL,
     WEIGHT_SETUP,
@@ -146,6 +148,10 @@ fun CornerstoneApp(
 
     var playlistSessionCombos by remember {
         mutableStateOf<List<Combo>?>(null)
+    }
+
+    var selectedTechniqueId by remember {
+        mutableStateOf("jab")
     }
 
     val scope = rememberCoroutineScope()
@@ -262,11 +268,31 @@ fun CornerstoneApp(
                     onOpenGlossary = {
                         screen = Screen.GLOSSARY
                     },
+                    onOpenTechniques = {
+                        screen = Screen.TECHNIQUES
+                    },
                     onOpenWeightCut = {
                         openWeightCut()
                     },
                     onOpenProgressCamera = {
                         openProgressCamera()
+                    }
+                )
+
+                Screen.TECHNIQUES -> TechniquesScreen(
+                    onTechniqueClick = { techniqueId ->
+                        selectedTechniqueId = techniqueId
+                        screen = Screen.TECHNIQUE_DETAIL
+                    },
+                    onExit = {
+                        screen = Screen.HOME
+                    }
+                )
+
+                Screen.TECHNIQUE_DETAIL -> TechniqueDetailScreen(
+                    techniqueId = selectedTechniqueId,
+                    onBack = {
+                        screen = Screen.TECHNIQUES
                     }
                 )
 

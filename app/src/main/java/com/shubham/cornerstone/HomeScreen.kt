@@ -45,6 +45,7 @@ fun HomeScreen(
     onStartSession: () -> Unit,
     onOpenPlaylists: () -> Unit,
     onOpenGlossary: () -> Unit,
+    onOpenTechniques: () -> Unit,
     onOpenWeightCut: () -> Unit,
     onOpenProgressCamera: () -> Unit
 ) {
@@ -139,6 +140,12 @@ fun HomeScreen(
 
             PlaylistsCard(
                 onClick = onOpenPlaylists
+            )
+
+            Spacer(Modifier.height(14.dp))
+
+            LearnTechniquesCard(
+                onClick = onOpenTechniques
             )
 
             Spacer(Modifier.height(14.dp))
@@ -292,6 +299,65 @@ private fun PlaylistsCard(
                 fontSize = 20.sp,
                 color = FightRed
             )
+        }
+    }
+}
+
+@Composable
+private fun LearnTechniquesCard(
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                onClick()
+            },
+        shape = RoundedCornerShape(16.dp),
+        color = FightRed.copy(alpha = 0.12f)
+    ) {
+        Row(
+            modifier = Modifier.padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "Learn techniques",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                Spacer(Modifier.height(3.dp))
+
+                Text(
+                    text = "Jab, cross, hook, sprawl and beginner fight basics explained clearly.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = FightRed.copy(alpha = 0.18f)
+            ) {
+                Text(
+                    text = "LEARN",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.sp,
+                    color = FightRed,
+                    modifier = Modifier.padding(
+                        horizontal = 12.dp,
+                        vertical = 7.dp
+                    )
+                )
+            }
         }
     }
 }
