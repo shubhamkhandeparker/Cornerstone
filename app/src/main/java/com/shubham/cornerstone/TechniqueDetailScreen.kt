@@ -272,8 +272,8 @@ private fun TechniquePanelCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            panel.coachingLines.forEach {
-                BulletLine(text = it)
+            panel.coachingLines.forEach { coachingLine ->
+                BulletLine(text = coachingLine)
             }
         }
     }
@@ -465,69 +465,187 @@ private fun techniqueImageResId(
     panelTitle: String
 ): Int? {
     return when {
-        techniqueId == "jab" && panelTitle == "Front view" -> {
+        // Jab
+        techniqueId == "jab" && panelTitle == "Front view" ->
             R.drawable.jab_front_view
-        }
 
-        techniqueId == "jab" && panelTitle == "Side view" -> {
+        techniqueId == "jab" && panelTitle == "Side view" ->
             R.drawable.jab_side_view
-        }
 
-        techniqueId == "jab" && panelTitle == "Foot position" -> {
+        techniqueId == "jab" && panelTitle == "Foot position" ->
             R.drawable.jab_foot_position
-        }
 
-        techniqueId == "jab" && panelTitle == "End position" -> {
+        techniqueId == "jab" && panelTitle == "End position" ->
             R.drawable.jab_end_position
-        }
 
-        techniqueId == "cross" && panelTitle == "Start position" -> {
+        // Cross
+        techniqueId == "cross" && panelTitle == "Start position" ->
             R.drawable.cross_front_view
-        }
 
-        techniqueId == "cross" && panelTitle == "Hip rotation" -> {
+        techniqueId == "cross" && panelTitle == "Hip rotation" ->
             R.drawable.cross_foot_position
-        }
 
-        techniqueId == "cross" && panelTitle == "Punch line" -> {
+        techniqueId == "cross" && panelTitle == "Punch line" ->
             R.drawable.cross_side_view
-        }
 
-        techniqueId == "cross" && panelTitle == "Recovery" -> {
+        techniqueId == "cross" && panelTitle == "Recovery" ->
             R.drawable.cross_end_position
-        }
 
-        techniqueId == "lead_hook" && panelTitle == "Guard position" -> {
+        // Lead Hook
+        techniqueId == "lead_hook" && panelTitle == "Guard position" ->
             R.drawable.lead_hook_front_view
-        }
 
-        techniqueId == "lead_hook" && panelTitle == "Elbow line" -> {
+        techniqueId == "lead_hook" && panelTitle == "Elbow line" ->
             R.drawable.lead_hook_side_view
-        }
 
-        techniqueId == "lead_hook" && panelTitle == "Hip turn" -> {
+        techniqueId == "lead_hook" && panelTitle == "Hip turn" ->
             R.drawable.lead_hook_hip_rotation
-        }
 
-        techniqueId == "lead_hook" && panelTitle == "Finish" -> {
+        techniqueId == "lead_hook" && panelTitle == "Finish" ->
             R.drawable.lead_hook_end_position
-        }
 
-        techniqueId == "sprawl" && panelTitle == "Opponent shoots" -> {
+        // Rear Hook
+        techniqueId == "rear_hook" && panelTitle == "Guard position" ->
+            R.drawable.rear_hook_guard_position
+
+        techniqueId == "rear_hook" && panelTitle == "Rear-side rotation" ->
+            R.drawable.rear_hook_rear_side_rotation
+
+        techniqueId == "rear_hook" && panelTitle == "Hook line" ->
+            R.drawable.rear_hook_hook_line
+
+        techniqueId == "rear_hook" && panelTitle == "Return to guard" ->
+            R.drawable.rear_hook_return_to_guard
+
+        // Lead Uppercut
+        techniqueId == "lead_uppercut" && panelTitle == "Guard position" ->
+            R.drawable.lead_uppercut_guard_position
+
+        techniqueId == "lead_uppercut" && panelTitle == "Level change" ->
+            R.drawable.lead_uppercut_level_change
+
+        techniqueId == "lead_uppercut" && panelTitle == "Punch path" ->
+            R.drawable.lead_uppercut_punch_path
+
+        techniqueId == "lead_uppercut" && panelTitle == "Return to guard" ->
+            R.drawable.lead_uppercut_return_to_guard
+
+        // Rear Uppercut
+        techniqueId == "rear_uppercut" && panelTitle == "Guard position" ->
+            R.drawable.rear_uppercut_guard_position
+
+        techniqueId == "rear_uppercut" && panelTitle == "Rear-side load" ->
+            R.drawable.rear_uppercut_rear_side_load
+
+        techniqueId == "rear_uppercut" && panelTitle == "Upward drive" ->
+            R.drawable.rear_uppercut_upward_drive
+
+        techniqueId == "rear_uppercut" && panelTitle == "Recovery" ->
+            R.drawable.rear_uppercut_recovery
+
+        // Slip
+        techniqueId == "slip" && panelTitle == "Starting guard" ->
+            R.drawable.slip_starting_guard
+
+        techniqueId == "slip" && panelTitle == "Outside slip" ->
+            R.drawable.slip_outside_slip
+
+        techniqueId == "slip" && panelTitle == "Inside slip" ->
+            R.drawable.slip_inside_slip
+
+        techniqueId == "slip" && panelTitle == "Counter position" ->
+            R.drawable.slip_counter_position
+
+        // Roll
+        techniqueId == "roll" && panelTitle == "Starting guard" ->
+            R.drawable.roll_starting_guard
+
+        techniqueId == "roll" && panelTitle == "Level change" ->
+            R.drawable.roll_level_change
+
+        techniqueId == "roll" && panelTitle == "U-shaped movement" ->
+            R.drawable.roll_u_shaped_movement
+
+        techniqueId == "roll" && panelTitle == "Exit position" ->
+            R.drawable.roll_exit_position
+
+        // Teep
+        techniqueId == "teep" && panelTitle == "Starting stance" ->
+            R.drawable.teep_starting_stance
+
+        techniqueId == "teep" && panelTitle == "Knee chamber" ->
+            R.drawable.teep_knee_chamber
+
+        techniqueId == "teep" && panelTitle == "Push extension" ->
+            R.drawable.teep_push_extension
+
+        techniqueId == "teep" && panelTitle == "Return to stance" ->
+            R.drawable.teep_return_to_stance
+
+        // Round Kick
+        techniqueId == "round_kick" && panelTitle == "Starting stance" ->
+            R.drawable.round_kick_starting_stance
+
+        techniqueId == "round_kick" && panelTitle == "Support-foot pivot" ->
+            R.drawable.round_kick_support_foot_pivot
+
+        techniqueId == "round_kick" && panelTitle == "Hip rotation" ->
+            R.drawable.round_kick_hip_rotation
+
+        techniqueId == "round_kick" && panelTitle == "Recovery" ->
+            R.drawable.round_kick_recovery
+
+        // Knee
+        techniqueId == "knee" && panelTitle == "Starting stance" ->
+            R.drawable.knee_starting_stance
+
+        techniqueId == "knee" && panelTitle == "Hip drive" ->
+            R.drawable.knee_hip_drive
+
+        techniqueId == "knee" && panelTitle == "Knee path" ->
+            R.drawable.knee_knee_path
+
+        techniqueId == "knee" && panelTitle == "Return to stance" ->
+            R.drawable.knee_return_to_stance
+
+        // Elbow
+        techniqueId == "elbow" && panelTitle == "Starting guard" ->
+            R.drawable.elbow_starting_guard
+
+        techniqueId == "elbow" && panelTitle == "Elbow chamber" ->
+            R.drawable.elbow_elbow_chamber
+
+        techniqueId == "elbow" && panelTitle == "Striking path" ->
+            R.drawable.elbow_striking_path
+
+        techniqueId == "elbow" && panelTitle == "Recovery" ->
+            R.drawable.elbow_recovery
+
+        // Check Kick
+        techniqueId == "check_kick" && panelTitle == "Starting stance" ->
+            R.drawable.check_kick_starting_stance
+
+        techniqueId == "check_kick" && panelTitle == "Knee lift" ->
+            R.drawable.check_kick_knee_lift
+
+        techniqueId == "check_kick" && panelTitle == "Shin position" ->
+            R.drawable.check_kick_shin_position
+
+        techniqueId == "check_kick" && panelTitle == "Return to stance" ->
+            R.drawable.check_kick_return_to_stance
+
+        // Sprawl
+        techniqueId == "sprawl" && panelTitle == "Opponent shoots" ->
             R.drawable.sprawl_opponent_shoots
-        }
 
-        techniqueId == "sprawl" && panelTitle == "Hips back" -> {
+        techniqueId == "sprawl" && panelTitle == "Hips back" ->
             R.drawable.sprawl_hips_back
-        }
 
-        techniqueId == "sprawl" && panelTitle == "Frame" -> {
+        techniqueId == "sprawl" && panelTitle == "Frame" ->
             R.drawable.sprawl_frame
-        }
 
-        techniqueId == "sprawl" && panelTitle == "Control & follow-up" -> {
+        techniqueId == "sprawl" && panelTitle == "Control & follow-up" ->
             R.drawable.sprawl_recover
-        }
 
         else -> null
     }
