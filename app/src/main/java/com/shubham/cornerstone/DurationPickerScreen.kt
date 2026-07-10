@@ -44,15 +44,24 @@ import com.shubham.cornerstone.ui.theme.Charcoal
 import com.shubham.cornerstone.ui.theme.FightRed
 import com.shubham.cornerstone.ui.theme.InkBlack
 
+private const val FREE_REST_SECONDS = 15
+
 @Composable
 fun DurationPickerScreen(
     onStart: (
         secondsPerCombo: Int,
         comboCount: Int
     ) -> Unit,
-    onExit: () -> Unit
+    onExit: () -> Unit,
+    isPro: Boolean = false,
+    onUnlockPro: () -> Unit = {},
+    onStartWithRest: ((
+        secondsPerCombo: Int,
+        comboCount: Int,
+        restSeconds: Int
+    ) -> Unit)? = null
 ) {
-    val presets = listOf(
+    val durationPresets = listOf(
         "Tap to advance" to 0,
         "30 seconds" to 30,
         "60 seconds" to 60,
@@ -60,24 +69,95 @@ fun DurationPickerScreen(
         "3 minutes" to 180
     )
 
-    var selected by remember { mutableIntStateOf(0) }
-    var customText by remember { mutableStateOf("") }
-    var customActive by remember { mutableStateOf(false) }
-    var comboCount by remember { mutableIntStateOf(6) }
+    val restPresets = listOf(
+        15,
+        30,
+        45,
+        60,
+        90
+    )
 
-    val selectedSeconds = if (customActive && customText.isNotEmpty()) {
-        customText.toIntOrNull() ?: 0
-    } else {
-        presets[selected].second
+    var selectedDurationIndex by remember {
+        mutableIntStateOf(0)
     }
 
-    val totalSeconds = selectedSeconds * comboCount
+    var customDurationText by remember {
+        mutableStateOf("")
+    }
+
+    var customDurationActive by remember {
+        mutableStateOf(false)
+    }
+
+    var comboCount by remember {
+        mutableIntStateOf(6)
+    }
+
+    var selectedRestSeconds by remember {
+        mutableIntStateOf(FREE_REST_SECONDS)
+    }
+
+    var customRestActive by remember {
+        mutableStateOf(false)
+    }
+
+    var customRestText by remember {
+        mutableStateOf("")
+    }
+
+    val selectedSeconds = if (
+        customDurationActive &&
+        customDurationText.isNotEmpty()
+    ) {
+        customDurationText.toIntOrNull() ?: 0
+    } else {
+        durationPresets[selectedDurationIndex].second
+    }
+
+    val customRestValue = customRestText
+        .toIntOrNull()
+        ?.coerceIn(1, 999)
+
+    val effectiveRestSeconds = when {
+        !isPro -> FREE_REST_SECONDS
+        customRestActive -> customRestValue ?: FREE_REST_SECONDS
+        else -> selectedRestSeconds
+    }
+
+    val customRestValid = !customRestActive ||
+            customRestValue != null
+
+    val activeRoundSeconds = selectedSeconds * comboCount
+
+    val totalRestSeconds = if (
+        selectedSeconds > 0 &&
+        comboCount > 1
+    ) {
+        effectiveRestSeconds * (comboCount - 1)
+    } else {
+        0
+    }
+
+    val estimatedTotalSeconds =
+        activeRoundSeconds + totalRestSeconds
 
     val totalMinutesText = when {
-        selectedSeconds == 0 -> "Tap mode session"
-        totalSeconds < 60 -> "$totalSeconds sec session"
-        totalSeconds % 60 == 0 -> "${totalSeconds / 60} min session"
-        else -> "${totalSeconds / 60} min ${totalSeconds % 60} sec session"
+        selectedSeconds == 0 -> {
+            "Tap mode session"
+        }
+
+        estimatedTotalSeconds < 60 -> {
+            "$estimatedTotalSeconds sec including rests"
+        }
+
+        estimatedTotalSeconds % 60 == 0 -> {
+            "${estimatedTotalSeconds / 60} min including rests"
+        }
+
+        else -> {
+            "${estimatedTotalSeconds / 60} min " +
+                    "${estimatedTotalSeconds % 60} sec including rests"
+        }
     }
 
     Box(
@@ -97,21 +177,29 @@ fun DurationPickerScreen(
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(
+                    rememberScrollState()
+                )
                 .padding(horizontal = 24.dp)
         ) {
-            Spacer(Modifier.height(16.dp))
+            Spacer(
+                modifier = Modifier.height(16.dp)
+            )
 
             Text(
                 text = "← Back",
                 fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
-                    .clickable { onExit() }
+                    .clickable {
+                        onExit()
+                    }
                     .padding(vertical = 8.dp)
             )
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(
+                modifier = Modifier.height(20.dp)
+            )
 
             Text(
                 text = "Build your\nsession",
@@ -121,16 +209,20 @@ fun DurationPickerScreen(
                 color = MaterialTheme.colorScheme.onBackground
             )
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(
+                modifier = Modifier.height(10.dp)
+            )
 
             Text(
-                text = "Choose time per combo and how many combos you want today.",
+                text = "Choose time per combo, rest between rounds, and how many combos you want today.",
                 fontSize = 15.sp,
                 lineHeight = 24.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(
+                modifier = Modifier.height(28.dp)
+            )
 
             Text(
                 text = "Time per combo",
@@ -139,30 +231,41 @@ fun DurationPickerScreen(
                 color = MaterialTheme.colorScheme.onBackground
             )
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(
+                modifier = Modifier.height(12.dp)
+            )
 
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                presets.forEachIndexed { index, pair ->
+                durationPresets.forEachIndexed { index, pair ->
                     DurationOption(
                         label = pair.first,
-                        selected = selected == index && !customActive,
+                        selected = selectedDurationIndex == index &&
+                                !customDurationActive,
                         onClick = {
-                            selected = index
-                            customActive = false
+                            selectedDurationIndex = index
+                            customDurationActive = false
                         }
                     )
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(
+                modifier = Modifier.height(16.dp)
+            )
 
             OutlinedTextField(
-                value = customText,
-                onValueChange = {
-                    customText = it.filter { ch -> ch.isDigit() }.take(3)
-                    customActive = customText.isNotEmpty()
+                value = customDurationText,
+                onValueChange = { newValue ->
+                    customDurationText = newValue
+                        .filter { character ->
+                            character.isDigit()
+                        }
+                        .take(3)
+
+                    customDurationActive =
+                        customDurationText.isNotEmpty()
                 },
                 modifier = Modifier.fillMaxWidth(),
                 label = {
@@ -183,7 +286,242 @@ fun DurationPickerScreen(
                 )
             )
 
-            Spacer(Modifier.height(22.dp))
+            Spacer(
+                modifier = Modifier.height(28.dp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "Rest between rounds",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(3.dp)
+                    )
+
+                    Text(
+                        text = if (isPro) {
+                            "Choose how long you recover before the next combo."
+                        } else {
+                            "Free plan includes a fixed 15-second rest."
+                        },
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (isPro) {
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = FightRed.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = "PRO",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 1.sp,
+                            color = FightRed,
+                            modifier = Modifier.padding(
+                                horizontal = 11.dp,
+                                vertical = 6.dp
+                            )
+                        )
+                    }
+                }
+            }
+
+            Spacer(
+                modifier = Modifier.height(14.dp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                restPresets
+                    .take(3)
+                    .forEach { seconds ->
+                        RestOption(
+                            label = "${seconds}s",
+                            selected = !customRestActive &&
+                                    effectiveRestSeconds == seconds,
+                            locked = !isPro &&
+                                    seconds != FREE_REST_SECONDS,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                if (
+                                    !isPro &&
+                                    seconds != FREE_REST_SECONDS
+                                ) {
+                                    onUnlockPro()
+                                } else {
+                                    customRestActive = false
+                                    selectedRestSeconds = seconds
+                                }
+                            }
+                        )
+                    }
+            }
+
+            Spacer(
+                modifier = Modifier.height(10.dp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                restPresets
+                    .drop(3)
+                    .forEach { seconds ->
+                        RestOption(
+                            label = "${seconds}s",
+                            selected = !customRestActive &&
+                                    effectiveRestSeconds == seconds,
+                            locked = !isPro,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                if (!isPro) {
+                                    onUnlockPro()
+                                } else {
+                                    customRestActive = false
+                                    selectedRestSeconds = seconds
+                                }
+                            }
+                        )
+                    }
+
+                RestOption(
+                    label = "Custom",
+                    selected = customRestActive,
+                    locked = !isPro,
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        if (!isPro) {
+                            onUnlockPro()
+                        } else {
+                            customRestActive = true
+                        }
+                    }
+                )
+            }
+
+            if (isPro && customRestActive) {
+                Spacer(
+                    modifier = Modifier.height(12.dp)
+                )
+
+                OutlinedTextField(
+                    value = customRestText,
+                    onValueChange = { newValue ->
+                        customRestText = newValue
+                            .filter { character ->
+                                character.isDigit()
+                            }
+                            .take(3)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = {
+                        Text("Custom rest seconds")
+                    },
+                    supportingText = {
+                        Text(
+                            text = if (
+                                customRestText.isNotEmpty() &&
+                                customRestValue == null
+                            ) {
+                                "Enter at least 1 second."
+                            } else {
+                                "Choose between 1 and 999 seconds."
+                            }
+                        )
+                    },
+                    isError = customRestText.isNotEmpty() &&
+                            customRestValue == null,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Charcoal,
+                        unfocusedContainerColor = Charcoal,
+                        focusedIndicatorColor = FightRed,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        focusedLabelColor = FightRed,
+                        cursorColor = FightRed
+                    )
+                )
+            }
+
+            if (!isPro) {
+                Spacer(
+                    modifier = Modifier.height(12.dp)
+                )
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onUnlockPro()
+                        },
+                    shape = RoundedCornerShape(16.dp),
+                    color = FightRed.copy(alpha = 0.10f),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = FightRed.copy(alpha = 0.35f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = "Custom rest is a Pro feature",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+
+                            Spacer(
+                                modifier = Modifier.height(3.dp)
+                            )
+
+                            Text(
+                                text = "Unlock custom rest together with Weight Cut and progress tools.",
+                                fontSize = 12.sp,
+                                lineHeight = 18.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Text(
+                            text = "UNLOCK",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black,
+                            color = FightRed
+                        )
+                    }
+                }
+            }
+
+            Spacer(
+                modifier = Modifier.height(24.dp)
+            )
 
             ComboCountCard(
                 comboCount = comboCount,
@@ -199,7 +537,9 @@ fun DurationPickerScreen(
                 }
             )
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(
+                modifier = Modifier.height(12.dp)
+            )
 
             Text(
                 text = totalMinutesText,
@@ -207,21 +547,49 @@ fun DurationPickerScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(Modifier.height(24.dp))
+            if (selectedSeconds > 0) {
+                Spacer(
+                    modifier = Modifier.height(5.dp)
+                )
+
+                Text(
+                    text = "${effectiveRestSeconds}s rest between rounds",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = FightRed
+                )
+            }
+
+            Spacer(
+                modifier = Modifier.height(24.dp)
+            )
 
             Button(
                 onClick = {
-                    onStart(
-                        selectedSeconds,
-                        comboCount
-                    )
+                    val startWithRest = onStartWithRest
+
+                    if (startWithRest != null) {
+                        startWithRest(
+                            selectedSeconds,
+                            comboCount,
+                            effectiveRestSeconds
+                        )
+                    } else {
+                        onStart(
+                            selectedSeconds,
+                            comboCount
+                        )
+                    }
                 },
+                enabled = customRestValid,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(58.dp),
                 shape = RoundedCornerShape(18.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = FightRed
+                    containerColor = FightRed,
+                    disabledContainerColor = Charcoal,
+                    disabledContentColor = Color(0xFF777777)
                 )
             ) {
                 Text(
@@ -231,7 +599,9 @@ fun DurationPickerScreen(
                 )
             }
 
-            Spacer(Modifier.height(32.dp))
+            Spacer(
+                modifier = Modifier.height(32.dp)
+            )
         }
     }
 }
@@ -295,6 +665,75 @@ private fun DurationOption(
 }
 
 @Composable
+private fun RestOption(
+    label: String,
+    selected: Boolean,
+    locked: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = modifier
+            .height(58.dp)
+            .clickable {
+                onClick()
+            },
+        shape = RoundedCornerShape(15.dp),
+        color = when {
+            selected -> FightRed.copy(alpha = 0.16f)
+            else -> Charcoal
+        },
+        border = when {
+            selected -> BorderStroke(
+                width = 2.dp,
+                color = FightRed
+            )
+
+            locked -> BorderStroke(
+                width = 1.dp,
+                color = Color.White.copy(alpha = 0.08f)
+            )
+
+            else -> null
+        }
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = label,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (locked) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onBackground
+                    }
+                )
+
+                if (locked) {
+                    Spacer(
+                        modifier = Modifier.height(2.dp)
+                    )
+
+                    Text(
+                        text = "PRO",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.sp,
+                        color = FightRed
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ComboCountCard(
     comboCount: Int,
     onDecrease: () -> Unit,
@@ -315,7 +754,9 @@ private fun ComboCountCard(
                 color = MaterialTheme.colorScheme.onBackground
             )
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(
+                modifier = Modifier.height(14.dp)
+            )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -343,7 +784,9 @@ private fun ComboCountCard(
                 )
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(
+                modifier = Modifier.height(8.dp)
+            )
 
             Text(
                 text = "Minimum 1, maximum 50 combos.",

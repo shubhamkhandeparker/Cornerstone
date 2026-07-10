@@ -38,7 +38,10 @@ import com.shubham.cornerstone.ui.theme.InkBlack
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
+private const val FREE_REST_SECONDS = 15
+
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -100,6 +103,12 @@ private enum class Screen {
     PROGRESS_CAMERA
 }
 
+private enum class PaywallDestination {
+    WEIGHT_CUT,
+    PROGRESS_CAMERA,
+    DURATION
+}
+
 @Composable
 fun CornerstoneApp(
     userRepository: UserProfileRepository,
@@ -130,8 +139,16 @@ fun CornerstoneApp(
         mutableStateOf(Screen.HOME)
     }
 
+    var paywallDestination by remember {
+        mutableStateOf(PaywallDestination.WEIGHT_CUT)
+    }
+
     var secondsPerCombo by remember {
         mutableIntStateOf(0)
+    }
+
+    var restSeconds by remember {
+        mutableIntStateOf(FREE_REST_SECONDS)
     }
 
     var combosPerSession by remember {
@@ -191,22 +208,33 @@ fun CornerstoneApp(
 
         else -> {
             fun openWeightCut() {
-                screen = when {
-                    !currentProfile.isPro -> Screen.PAYWALL
-
-                    currentProfile.targetWeightKg != null &&
-                            currentProfile.fightDateEpochDay != null -> Screen.WEIGHT_CUT
-
-                    else -> Screen.WEIGHT_SETUP
+                if (!currentProfile.isPro) {
+                    paywallDestination = PaywallDestination.WEIGHT_CUT
+                    screen = Screen.PAYWALL
+                } else {
+                    screen = if (
+                        currentProfile.targetWeightKg != null &&
+                        currentProfile.fightDateEpochDay != null
+                    ) {
+                        Screen.WEIGHT_CUT
+                    } else {
+                        Screen.WEIGHT_SETUP
+                    }
                 }
             }
 
             fun openProgressCamera() {
-                screen = if (!currentProfile.isPro) {
-                    Screen.PAYWALL
+                if (!currentProfile.isPro) {
+                    paywallDestination = PaywallDestination.PROGRESS_CAMERA
+                    screen = Screen.PAYWALL
                 } else {
-                    Screen.PROGRESS_CAMERA
+                    screen = Screen.PROGRESS_CAMERA
                 }
+            }
+
+            fun openRestPaywall() {
+                paywallDestination = PaywallDestination.DURATION
+                screen = Screen.PAYWALL
             }
 
             fun finishSessionAndGoHome(
@@ -302,10 +330,15 @@ fun CornerstoneApp(
                         screen = Screen.HOME
                     },
                     onRunPlaylist = { playlistCombos ->
-                        playlistSessionCombos = playlistCombos.toSessionCombos()
+                        playlistSessionCombos =
+                            playlistCombos.toSessionCombos()
 
                         if (secondsPerCombo <= 0) {
                             secondsPerCombo = 30
+                        }
+
+                        if (!currentProfile.isPro) {
+                            restSeconds = FREE_REST_SECONDS
                         }
 
                         screen = Screen.SESSION
@@ -316,25 +349,57 @@ fun CornerstoneApp(
                     onStart = { seconds, comboCount ->
                         secondsPerCombo = seconds
                         combosPerSession = comboCount
+                        restSeconds = FREE_REST_SECONDS
                         playlistSessionCombos = null
                         screen = Screen.SESSION
                     },
                     onExit = {
                         playlistSessionCombos = null
                         screen = Screen.HOME
+                    },
+                    isPro = currentProfile.isPro,
+                    onUnlockPro = {
+                        openRestPaywall()
+                    },
+                    onStartWithRest = {
+                            seconds,
+                            comboCount,
+                            selectedRestSeconds ->
+
+                        secondsPerCombo = seconds
+                        combosPerSession = comboCount
+
+                        restSeconds = if (currentProfile.isPro) {
+                            selectedRestSeconds.coerceAtLeast(1)
+                        } else {
+                            FREE_REST_SECONDS
+                        }
+
+                        playlistSessionCombos = null
+                        screen = Screen.SESSION
                     }
                 )
 
                 Screen.SESSION -> {
-                    val currentPlaylistSessionCombos = playlistSessionCombos
+                    val currentPlaylistSessionCombos =
+                        playlistSessionCombos
+
+                    val effectiveRestSeconds =
+                        if (currentProfile.isPro) {
+                            restSeconds.coerceAtLeast(1)
+                        } else {
+                            FREE_REST_SECONDS
+                        }
 
                     if (currentPlaylistSessionCombos != null) {
                         SessionScreen(
                             combos = currentPlaylistSessionCombos,
                             secondsPerCombo = secondsPerCombo,
+                            restSeconds = effectiveRestSeconds,
                             onFinishSession = {
                                 finishPlaylistSessionAndGoHome(
-                                    actualComboCount = currentPlaylistSessionCombos.size
+                                    actualComboCount =
+                                        currentPlaylistSessionCombos.size
                                 )
                             },
                             onExit = {
@@ -346,7 +411,8 @@ fun CornerstoneApp(
                             key = "session"
                         )
 
-                        val state by sessionVm.state.collectAsStateWithLifecycle()
+                        val state by sessionVm.state
+                            .collectAsStateWithLifecycle()
 
                         LaunchedEffect(
                             currentProfile.sport,
@@ -366,18 +432,20 @@ fun CornerstoneApp(
                             )
                         }
 
-                        when (val s = state) {
+                        when (val sessionState = state) {
                             is SessionViewModel.State.Loading -> {
                                 GeneratingScreen()
                             }
 
                             is SessionViewModel.State.Ready -> {
                                 SessionScreen(
-                                    combos = s.combos,
+                                    combos = sessionState.combos,
                                     secondsPerCombo = secondsPerCombo,
+                                    restSeconds = effectiveRestSeconds,
                                     onFinishSession = {
                                         finishAiSessionAndGoHome(
-                                            actualComboCount = s.combos.size
+                                            actualComboCount =
+                                                sessionState.combos.size
                                         )
                                     },
                                     onExit = {
@@ -400,18 +468,39 @@ fun CornerstoneApp(
                         scope.launch {
                             userRepository.setPro(true)
 
-                            screen = if (
-                                currentProfile.targetWeightKg != null &&
-                                currentProfile.fightDateEpochDay != null
-                            ) {
-                                Screen.WEIGHT_CUT
-                            } else {
-                                Screen.WEIGHT_SETUP
+                            screen = when (paywallDestination) {
+                                PaywallDestination.DURATION -> {
+                                    Screen.DURATION
+                                }
+
+                                PaywallDestination.PROGRESS_CAMERA -> {
+                                    Screen.PROGRESS_CAMERA
+                                }
+
+                                PaywallDestination.WEIGHT_CUT -> {
+                                    if (
+                                        currentProfile.targetWeightKg != null &&
+                                        currentProfile.fightDateEpochDay != null
+                                    ) {
+                                        Screen.WEIGHT_CUT
+                                    } else {
+                                        Screen.WEIGHT_SETUP
+                                    }
+                                }
                             }
                         }
                     },
                     onExit = {
-                        screen = Screen.HOME
+                        screen = when (paywallDestination) {
+                            PaywallDestination.DURATION -> {
+                                Screen.DURATION
+                            }
+
+                            PaywallDestination.PROGRESS_CAMERA,
+                            PaywallDestination.WEIGHT_CUT -> {
+                                Screen.HOME
+                            }
+                        }
                     }
                 )
 
@@ -420,11 +509,15 @@ fun CornerstoneApp(
                         scope.launch {
                             weightRepository.setPlan(
                                 targetKg = targetKg,
-                                fightDate = LocalDate.now().plusDays(fightInDays.toLong()),
+                                fightDate = LocalDate.now().plusDays(
+                                    fightInDays.toLong()
+                                ),
                                 useKg = useKg
                             )
 
-                            cutStatus = weightRepository.computeStatus()
+                            cutStatus =
+                                weightRepository.computeStatus()
+
                             screen = Screen.WEIGHT_CUT
                         }
                     },
@@ -440,7 +533,8 @@ fun CornerstoneApp(
                     onLogWeight = { weightKg ->
                         scope.launch {
                             weightRepository.logWeight(weightKg)
-                            cutStatus = weightRepository.computeStatus()
+                            cutStatus =
+                                weightRepository.computeStatus()
                         }
                     },
                     onExit = {
@@ -483,7 +577,7 @@ private fun GeneratingScreen() {
             )
 
             Spacer(
-                Modifier.height(24.dp)
+                modifier = Modifier.height(24.dp)
             )
 
             Text(
@@ -494,7 +588,7 @@ private fun GeneratingScreen() {
             )
 
             Spacer(
-                Modifier.height(6.dp)
+                modifier = Modifier.height(6.dp)
             )
 
             Text(

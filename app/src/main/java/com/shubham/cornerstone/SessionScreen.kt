@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,30 +48,47 @@ import com.shubham.cornerstone.ui.theme.FightRed
 import com.shubham.cornerstone.ui.theme.InkBlack
 import kotlinx.coroutines.delay
 
-private const val REST_SECONDS = 15
+private const val DEFAULT_REST_SECONDS = 15
 
 @Composable
 fun SessionScreen(
     combos: List<Combo>,
-    secondsPerCombo: Int,   // 0 = tap-to-advance (no timer)
+    secondsPerCombo: Int,
+    restSeconds: Int = DEFAULT_REST_SECONDS,
     onFinishSession: () -> Unit,
     onExit: () -> Unit
 ) {
+    if (combos.isEmpty()) {
+        EmptySessionScreen(onExit = onExit)
+        return
+    }
+
     var index by remember { mutableIntStateOf(0) }
     var repeat by remember { mutableStateOf(false) }
     var resting by remember { mutableStateOf(false) }
+    var isPaused by remember { mutableStateOf(false) }
 
     val isLast = index == combos.lastIndex
     val current = combos[index]
     val timerOn = secondsPerCombo > 0
+    val safeRestSeconds = restSeconds.coerceAtLeast(0)
 
-    // Beep helper.
-    val toneGen = remember { ToneGenerator(AudioManager.STREAM_MUSIC, 100) }
+    val toneGen = remember {
+        ToneGenerator(
+            AudioManager.STREAM_MUSIC,
+            100
+        )
+    }
+
     DisposableEffect(Unit) {
-        onDispose { toneGen.release() }
+        onDispose {
+            toneGen.release()
+        }
     }
 
     fun advance() {
+        isPaused = false
+
         if (isLast) {
             onFinishSession()
         } else {
@@ -78,16 +96,23 @@ fun SessionScreen(
         }
     }
 
-    // Round-start signal: a sharp acknowledge tone, like a boxing bell.
     fun ringBell() {
-        toneGen.startTone(ToneGenerator.TONE_PROP_ACK, 200)
+        toneGen.startTone(
+            ToneGenerator.TONE_PROP_ACK,
+            200
+        )
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(colors = listOf(Color(0xFF161518), InkBlack))
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF161518),
+                        InkBlack
+                    )
+                )
             )
     ) {
         Column(
@@ -96,9 +121,8 @@ fun SessionScreen(
                 .statusBarsPadding()
                 .padding(horizontal = 24.dp)
         ) {
-            Spacer(Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Top: exit + progress count
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -109,9 +133,12 @@ fun SessionScreen(
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
-                        .clickable { onExit() }
+                        .clickable {
+                            onExit()
+                        }
                         .padding(8.dp)
                 )
+
                 Text(
                     text = "${index + 1} / ${combos.size}",
                     fontSize = 14.sp,
@@ -120,11 +147,12 @@ fun SessionScreen(
                 )
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            ProgressBar(progress = (index + 1).toFloat() / combos.size)
+            ProgressBar(
+                progress = (index + 1).toFloat() / combos.size
+            )
 
-            // Center content
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -133,8 +161,14 @@ fun SessionScreen(
             ) {
                 if (resting) {
                     RestView(
-                        seconds = REST_SECONDS,
-                        onBeep = { toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 150) },
+                        seconds = safeRestSeconds,
+                        isPaused = isPaused,
+                        onBeep = {
+                            toneGen.startTone(
+                                ToneGenerator.TONE_PROP_BEEP,
+                                150
+                            )
+                        },
                         onDone = {
                             resting = false
                             advance()
@@ -144,7 +178,11 @@ fun SessionScreen(
                     AnimatedContent(
                         targetState = current,
                         transitionSpec = {
-                            fadeIn(tween(250)) togetherWith fadeOut(tween(150))
+                            fadeIn(
+                                animationSpec = tween(250)
+                            ) togetherWith fadeOut(
+                                animationSpec = tween(150)
+                            )
                         },
                         label = "combo"
                     ) { combo ->
@@ -153,12 +191,18 @@ fun SessionScreen(
                             timerOn = timerOn,
                             seconds = secondsPerCombo,
                             repeat = repeat,
-                            onBeep = { toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 150) },
-                            onRoundStartBell = { ringBell() },
+                            isPaused = isPaused,
+                            onBeep = {
+                                toneGen.startTone(
+                                    ToneGenerator.TONE_PROP_BEEP,
+                                    150
+                                )
+                            },
+                            onRoundStartBell = {
+                                ringBell()
+                            },
                             onTimeUp = {
-                                if (repeat) {
-                                    // loop: do nothing, the timer restarts via key change
-                                } else if (isLast) {
+                                if (isLast) {
                                     onFinishSession()
                                 } else {
                                     resting = true
@@ -169,29 +213,75 @@ fun SessionScreen(
                 }
             }
 
-            // Bottom controls
-            Column(modifier = Modifier.navigationBarsPadding()) {
-                if (timerOn && !resting) {
+            Column(
+                modifier = Modifier.navigationBarsPadding()
+            ) {
+                if (timerOn && !resting && !isPaused) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { repeat = !repeat }
+                            .clickable {
+                                repeat = !repeat
+                            }
                             .padding(vertical = 8.dp),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (repeat) "🔁 Repeat: ON" else "🔁 Repeat: OFF",
+                            text = if (repeat) {
+                                "🔁 Repeat: ON"
+                            } else {
+                                "🔁 Repeat: OFF"
+                            },
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (repeat) FightRed else MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (repeat) {
+                                FightRed
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
                         )
                     }
-                    Spacer(Modifier.height(8.dp))
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                if (timerOn) {
+                    Button(
+                        onClick = {
+                            isPaused = !isPaused
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isPaused) {
+                                FightRed
+                            } else {
+                                Charcoal
+                            }
+                        )
+                    ) {
+                        Text(
+                            text = if (isPaused) {
+                                "Resume session"
+                            } else {
+                                "Pause session"
+                            },
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
                 }
 
                 Button(
                     onClick = {
+                        isPaused = false
+
                         if (resting) {
                             resting = false
                             advance()
@@ -203,15 +293,24 @@ fun SessionScreen(
                         .fillMaxWidth()
                         .height(58.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = FightRed)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = FightRed
+                    )
                 ) {
                     Text(
-                        text = if (isLast && !resting) "Finish session" else "Skip  →",
+                        text = if (isLast && !resting) {
+                            "Finish session"
+                        } else if (resting) {
+                            "Skip rest  →"
+                        } else {
+                            "Skip  →"
+                        },
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
-                Spacer(Modifier.height(28.dp))
+
+                Spacer(modifier = Modifier.height(28.dp))
             }
         }
     }
@@ -223,60 +322,98 @@ private fun ComboView(
     timerOn: Boolean,
     seconds: Int,
     repeat: Boolean,
+    isPaused: Boolean,
     onBeep: () -> Unit,
     onRoundStartBell: () -> Unit,
     onTimeUp: () -> Unit
 ) {
-    // Get-ready phase before the round timer begins.
-    var getReady by remember(combo) { mutableIntStateOf(if (timerOn) 3 else 0) }
+    var getReady by remember(combo, timerOn) {
+        mutableIntStateOf(
+            if (timerOn) 3 else 0
+        )
+    }
+
+    val currentPaused by rememberUpdatedState(isPaused)
+    val currentOnBeep by rememberUpdatedState(onBeep)
+    val currentRoundStartBell by rememberUpdatedState(onRoundStartBell)
 
     LaunchedEffect(combo, timerOn) {
         if (timerOn) {
             getReady = 3
+
             while (getReady > 0) {
-                onBeep()
-                delay(1000)
+                while (currentPaused) {
+                    delay(100)
+                }
+
+                currentOnBeep()
+
+                waitForActiveSecond {
+                    currentPaused
+                }
+
                 getReady--
             }
-            onRoundStartBell()   // round begins
+
+            while (currentPaused) {
+                delay(100)
+            }
+
+            currentRoundStartBell()
         }
     }
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        // Phase tag (shows GET READY during the count-in)
-        Surface(shape = RoundedCornerShape(20.dp), color = Charcoal) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = if (isPaused) {
+                FightRed.copy(alpha = 0.18f)
+            } else {
+                Charcoal
+            }
+        ) {
             Text(
-                text = if (timerOn && getReady > 0) "GET READY" else combo.phase,
+                text = when {
+                    isPaused -> "PAUSED"
+                    timerOn && getReady > 0 -> "GET READY"
+                    else -> combo.phase
+                },
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 2.sp,
                 color = FightRed,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp)
+                modifier = Modifier.padding(
+                    horizontal = 16.dp,
+                    vertical = 7.dp
+                )
             )
         }
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
         if (timerOn && getReady > 0) {
-            // Big get-ready countdown
             Text(
                 text = "$getReady",
                 fontSize = 72.sp,
                 fontWeight = FontWeight.Black,
                 color = FightRed
             )
-            Spacer(Modifier.height(28.dp))
+
+            Spacer(modifier = Modifier.height(28.dp))
         } else if (timerOn) {
             CountdownText(
                 totalSeconds = seconds,
                 repeat = repeat,
+                isPaused = isPaused,
                 onBeep = onBeep,
                 onTimeUp = onTimeUp
             )
-            Spacer(Modifier.height(28.dp))
+
+            Spacer(modifier = Modifier.height(28.dp))
         }
 
-        // The combo
         Text(
             text = combo.moves,
             fontSize = 44.sp,
@@ -286,7 +423,7 @@ private fun ComboView(
             color = MaterialTheme.colorScheme.onBackground
         )
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         Text(
             text = combo.cue,
@@ -296,6 +433,17 @@ private fun ComboView(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
+
+        if (isPaused) {
+            Spacer(modifier = Modifier.height(18.dp))
+
+            Text(
+                text = "Timer paused",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = FightRed
+            )
+        }
     }
 }
 
@@ -303,31 +451,59 @@ private fun ComboView(
 private fun CountdownText(
     totalSeconds: Int,
     repeat: Boolean,
+    isPaused: Boolean,
     onBeep: () -> Unit,
     onTimeUp: () -> Unit
 ) {
-    var cycle by remember { mutableIntStateOf(0) }
-    var remaining by remember(cycle) { mutableIntStateOf(totalSeconds) }
+    var cycle by remember {
+        mutableIntStateOf(0)
+    }
 
-    LaunchedEffect(cycle) {
+    var remaining by remember(cycle, totalSeconds) {
+        mutableIntStateOf(totalSeconds)
+    }
+
+    val currentRepeat by rememberUpdatedState(repeat)
+    val currentPaused by rememberUpdatedState(isPaused)
+    val currentOnBeep by rememberUpdatedState(onBeep)
+    val currentOnTimeUp by rememberUpdatedState(onTimeUp)
+
+    LaunchedEffect(cycle, totalSeconds) {
         remaining = totalSeconds
+
         while (remaining > 0) {
-            delay(1000)
+            waitForActiveSecond {
+                currentPaused
+            }
+
             remaining--
-            if (remaining in 1..3) onBeep()  // count-out beeps
+
+            if (remaining in 1..3) {
+                currentOnBeep()
+            }
         }
-        onBeep()
-        if (repeat) {
-            cycle++          // loop again
+
+        while (currentPaused) {
+            delay(100)
+        }
+
+        currentOnBeep()
+
+        if (currentRepeat) {
+            cycle++
         } else {
-            onTimeUp()
+            currentOnTimeUp()
         }
     }
 
-    val mins = remaining / 60
-    val secs = remaining % 60
+    val minutes = remaining / 60
+    val seconds = remaining % 60
+
     Text(
-        text = "%d:%02d".format(mins, secs),
+        text = "%d:%02d".format(
+            minutes,
+            seconds
+        ),
         fontSize = 56.sp,
         fontWeight = FontWeight.Black,
         color = FightRed
@@ -337,40 +513,77 @@ private fun CountdownText(
 @Composable
 private fun RestView(
     seconds: Int,
+    isPaused: Boolean,
     onBeep: () -> Unit,
     onDone: () -> Unit
 ) {
-    var remaining by remember { mutableIntStateOf(seconds) }
-
-    LaunchedEffect(Unit) {
-        remaining = seconds
-        while (remaining > 0) {
-            delay(1000)
-            remaining--
-            if (remaining in 1..3) onBeep()
-        }
-        onBeep()
-        onDone()
+    var remaining by remember(seconds) {
+        mutableIntStateOf(seconds)
     }
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    val currentPaused by rememberUpdatedState(isPaused)
+    val currentOnBeep by rememberUpdatedState(onBeep)
+    val currentOnDone by rememberUpdatedState(onDone)
+
+    LaunchedEffect(seconds) {
+        remaining = seconds
+
+        while (remaining > 0) {
+            waitForActiveSecond {
+                currentPaused
+            }
+
+            remaining--
+
+            if (remaining in 1..3) {
+                currentOnBeep()
+            }
+        }
+
+        while (currentPaused) {
+            delay(100)
+        }
+
+        currentOnBeep()
+        currentOnDone()
+    }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Text(
-            text = "REST",
+            text = if (isPaused) {
+                "REST PAUSED"
+            } else {
+                "REST"
+            },
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 4.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = if (isPaused) {
+                FightRed
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
         )
-        Spacer(Modifier.height(20.dp))
+
+        Spacer(modifier = Modifier.height(20.dp))
+
         Text(
             text = "$remaining",
             fontSize = 72.sp,
             fontWeight = FontWeight.Black,
             color = MaterialTheme.colorScheme.onBackground
         )
-        Spacer(Modifier.height(12.dp))
+
+        Spacer(modifier = Modifier.height(12.dp))
+
         Text(
-            text = "Breathe. Next combo coming up.",
+            text = if (isPaused) {
+                "Rest timer is paused."
+            } else {
+                "Breathe. Next combo coming up."
+            },
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -378,18 +591,83 @@ private fun RestView(
 }
 
 @Composable
-private fun ProgressBar(progress: Float) {
+private fun ProgressBar(
+    progress: Float
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(6.dp)
-            .background(Charcoal, RoundedCornerShape(3.dp))
+            .background(
+                Charcoal,
+                RoundedCornerShape(3.dp)
+            )
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth(progress)
+                .fillMaxWidth(
+                    progress.coerceIn(
+                        0f,
+                        1f
+                    )
+                )
                 .height(6.dp)
-                .background(FightRed, RoundedCornerShape(3.dp))
+                .background(
+                    FightRed,
+                    RoundedCornerShape(3.dp)
+                )
         )
+    }
+}
+
+@Composable
+private fun EmptySessionScreen(
+    onExit: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(InkBlack)
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "No combos available",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            Button(
+                onClick = onExit,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = FightRed
+                )
+            ) {
+                Text(
+                    text = "Return home",
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+private suspend fun waitForActiveSecond(
+    isPaused: () -> Boolean
+) {
+    var activeMilliseconds = 0L
+
+    while (activeMilliseconds < 1_000L) {
+        delay(100L)
+
+        if (!isPaused()) {
+            activeMilliseconds += 100L
+        }
     }
 }

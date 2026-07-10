@@ -56,7 +56,9 @@ fun PaywallScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val billingManager = remember {
-        BillingManager(context = context.applicationContext)
+        BillingManager(
+            context = context.applicationContext
+        )
     }
 
     val connectionState by billingManager.connectionState.collectAsState()
@@ -86,7 +88,10 @@ fun PaywallScreen(
     }
 
     LaunchedEffect(purchaseState) {
-        if (purchaseState == BillingManager.PurchaseState.ENTITLED) {
+        if (
+            purchaseState ==
+            BillingManager.PurchaseState.ENTITLED
+        ) {
             onProEntitled()
         }
     }
@@ -101,47 +106,66 @@ fun PaywallScreen(
         ?: "₹100"
 
     val (buttonLabel, buttonEnabled) = when {
-        purchaseState == BillingManager.PurchaseState.PROCESSING ->
+        purchaseState ==
+                BillingManager.PurchaseState.PROCESSING -> {
             "Processing purchase..." to false
+        }
 
-        purchaseState == BillingManager.PurchaseState.PENDING ->
+        purchaseState ==
+                BillingManager.PurchaseState.PENDING -> {
             "Waiting for payment confirmation..." to false
+        }
 
-        purchaseState == BillingManager.PurchaseState.ERROR ->
+        purchaseState ==
+                BillingManager.PurchaseState.ERROR -> {
             "Try again" to true
+        }
 
-        connectionState == BillingManager.ConnectionState.CONNECTING ->
+        connectionState ==
+                BillingManager.ConnectionState.CONNECTING -> {
             "Connecting..." to false
+        }
 
-        connectionState == BillingManager.ConnectionState.ERROR ->
+        connectionState ==
+                BillingManager.ConnectionState.ERROR -> {
             "Store unavailable — retry" to true
+        }
 
-        connectionState == BillingManager.ConnectionState.CONNECTED ->
+        connectionState ==
+                BillingManager.ConnectionState.CONNECTED -> {
             if (productDetails == null) {
                 "Loading plan..." to false
             } else {
                 "Unlock Pro" to true
             }
+        }
 
-        connectionState == BillingManager.ConnectionState.DISCONNECTED ->
+        connectionState ==
+                BillingManager.ConnectionState.DISCONNECTED -> {
             "Connect to store" to true
+        }
 
-        else ->
+        else -> {
             "Unlock Pro" to true
+        }
     }
 
     val statusText = when (purchaseState) {
-        BillingManager.PurchaseState.PROCESSING ->
+        BillingManager.PurchaseState.PROCESSING -> {
             "Do not close the app yet. Waiting for Google Play..."
+        }
 
-        BillingManager.PurchaseState.PENDING ->
+        BillingManager.PurchaseState.PENDING -> {
             "Your payment is pending. Pro will unlock automatically after Google confirms it."
+        }
 
-        BillingManager.PurchaseState.ERROR ->
+        BillingManager.PurchaseState.ERROR -> {
             "Something went wrong. You can retry or reopen the paywall."
+        }
 
-        else ->
-            "Free: AI combos, round timer & drills stay free forever."
+        else -> {
+            "Free: combos, technique guides, pause controls and the round timer stay free."
+        }
     }
 
     Box(
@@ -165,7 +189,9 @@ fun PaywallScreen(
             verticalArrangement = Arrangement.Top
         ) {
             item {
-                Spacer(Modifier.height(16.dp))
+                Spacer(
+                    modifier = Modifier.height(16.dp)
+                )
 
                 Text(
                     text = "✕",
@@ -178,7 +204,9 @@ fun PaywallScreen(
                         .padding(8.dp)
                 )
 
-                Spacer(Modifier.height(18.dp))
+                Spacer(
+                    modifier = Modifier.height(18.dp)
+                )
 
                 Surface(
                     shape = RoundedCornerShape(12.dp),
@@ -197,50 +225,68 @@ fun PaywallScreen(
                     )
                 }
 
-                Spacer(Modifier.height(22.dp))
+                Spacer(
+                    modifier = Modifier.height(22.dp)
+                )
 
                 Text(
-                    text = "Make weight.\nEvery time.",
+                    text = "Train smarter.\nMake weight.",
                     fontSize = 42.sp,
                     lineHeight = 46.sp,
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.onBackground
                 )
 
-                Spacer(Modifier.height(14.dp))
+                Spacer(
+                    modifier = Modifier.height(14.dp)
+                )
 
                 Text(
-                    text = "Your weight cut, tracked and adapted daily — so you never miss the scale or crash-cut last minute.",
+                    text = "Unlock custom round rests, weight-cut tracking and progress tools built for your training camp.",
                     fontSize = 16.sp,
                     lineHeight = 24.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Spacer(Modifier.height(30.dp))
+                Spacer(
+                    modifier = Modifier.height(30.dp)
+                )
             }
 
             item {
                 ProFeature(
-                    title = "Daily pace tracking",
-                    subtitle = "Know exactly how much to cut, every day."
+                    title = "Custom round rests",
+                    subtitle = "Choose 15, 30, 45, 60 or 90 seconds — or enter your own rest time."
+                )
+
+                ProFeature(
+                    title = "Daily weight pace",
+                    subtitle = "Know how much progress you need each day before fight day."
                 )
 
                 ProFeature(
                     title = "On-track or behind alerts",
-                    subtitle = "Real-time status so there are no surprises on fight day."
+                    subtitle = "See whether your current pace is ahead, safe or falling behind."
                 )
 
                 ProFeature(
                     title = "Your full weight curve",
-                    subtitle = "See your whole camp at a glance and trust the trend."
+                    subtitle = "View your entire camp trend and previous weight entries."
                 )
 
                 ProFeature(
-                    title = "Remembers everything",
-                    subtitle = "Your target, your history, your pace — it compounds over weeks."
+                    title = "Progress camera",
+                    subtitle = "Capture progress photos and videos privately on your device."
                 )
 
-                Spacer(Modifier.height(20.dp))
+                ProFeature(
+                    title = "One Pro unlock",
+                    subtitle = "The same subscription unlocks custom rests, Weight Cut and progress tools."
+                )
+
+                Spacer(
+                    modifier = Modifier.height(20.dp)
+                )
             }
 
             item {
@@ -277,7 +323,9 @@ fun PaywallScreen(
                                 )
                             }
 
-                            Spacer(Modifier.height(4.dp))
+                            Spacer(
+                                modifier = Modifier.height(4.dp)
+                            )
 
                             Text(
                                 text = "Cancel anytime",
@@ -288,30 +336,36 @@ fun PaywallScreen(
                     }
                 }
 
-                Spacer(Modifier.height(18.dp))
+                Spacer(
+                    modifier = Modifier.height(18.dp)
+                )
             }
 
             item {
                 Button(
                     onClick = {
                         when {
-                            purchaseState == BillingManager.PurchaseState.ERROR -> {
+                            purchaseState ==
+                                    BillingManager.PurchaseState.ERROR -> {
                                 billingManager.refreshPurchases()
                             }
 
-                            connectionState == BillingManager.ConnectionState.CONNECTED &&
+                            connectionState ==
+                                    BillingManager.ConnectionState.CONNECTED &&
                                     productDetails != null &&
                                     activity != null -> {
                                 billingManager.launchPurchase(activity)
                             }
 
-                            connectionState == BillingManager.ConnectionState.ERROR ||
-                                    connectionState == BillingManager.ConnectionState.DISCONNECTED -> {
+                            connectionState ==
+                                    BillingManager.ConnectionState.ERROR ||
+                                    connectionState ==
+                                    BillingManager.ConnectionState.DISCONNECTED -> {
                                 billingManager.connect()
                             }
 
                             else -> {
-                                // Connecting, loading, processing, or pending.
+                                // Waiting for billing state to become ready.
                             }
                         }
                     },
@@ -331,7 +385,9 @@ fun PaywallScreen(
                     )
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(
+                    modifier = Modifier.height(12.dp)
+                )
 
                 Text(
                     text = statusText,
@@ -342,7 +398,9 @@ fun PaywallScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(Modifier.height(40.dp))
+                Spacer(
+                    modifier = Modifier.height(40.dp)
+                )
             }
         }
     }
@@ -375,9 +433,13 @@ private fun ProFeature(
             }
         }
 
-        Spacer(Modifier.width(14.dp))
+        Spacer(
+            modifier = Modifier.width(14.dp)
+        )
 
-        Column {
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
             Text(
                 text = title,
                 fontSize = 16.sp,
@@ -385,7 +447,9 @@ private fun ProFeature(
                 color = MaterialTheme.colorScheme.onBackground
             )
 
-            Spacer(Modifier.height(2.dp))
+            Spacer(
+                modifier = Modifier.height(2.dp)
+            )
 
             Text(
                 text = subtitle,
