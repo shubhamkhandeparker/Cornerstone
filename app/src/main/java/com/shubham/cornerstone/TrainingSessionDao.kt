@@ -9,43 +9,88 @@ import kotlinx.coroutines.flow.Flow
 interface TrainingSessionDao {
 
     @Insert
-    suspend fun insertSession(session: TrainingSessionEntity): Long
+    suspend fun insertSession(
+        session: TrainingSessionEntity
+    ): Long
 
     @Query(
         """
-        SELECT COUNT(*) 
-        FROM training_session 
+        SELECT COUNT(*)
+        FROM training_session
         WHERE localDate = :localDate
         """
     )
-    fun observeSessionCountForDate(localDate: String): Flow<Int>
+    fun observeSessionCountForDate(
+        localDate: String
+    ): Flow<Int>
 
     @Query(
         """
-        SELECT COALESCE(SUM(durationSeconds), 0) 
-        FROM training_session 
+        SELECT COALESCE(SUM(durationSeconds), 0)
+        FROM training_session
         WHERE localDate = :localDate
         """
     )
-    fun observeTotalDurationSecondsForDate(localDate: String): Flow<Int>
+    fun observeTotalDurationSecondsForDate(
+        localDate: String
+    ): Flow<Int>
 
     @Query(
         """
-        SELECT * 
-        FROM training_session 
-        ORDER BY finishedAtEpochMs DESC 
+        SELECT *
+        FROM training_session
+        ORDER BY finishedAtEpochMs DESC
         LIMIT :limit
         """
     )
-    fun observeRecentSessions(limit: Int = 20): Flow<List<TrainingSessionEntity>>
+    fun observeRecentSessions(
+        limit: Int = 20
+    ): Flow<List<TrainingSessionEntity>>
 
     @Query(
         """
-        SELECT * 
-        FROM training_session 
+        SELECT *
+        FROM training_session
         WHERE localDate = :localDate
         ORDER BY finishedAtEpochMs DESC
         """
     )
-    fun observeSessionsForDate(localDate: String): Flow<List<TrainingSessionEntity>>
+    fun observeSessionsForDate(
+        localDate: String
+    ): Flow<List<TrainingSessionEntity>>
+
+    /**
+     * Used by challenge validation immediately after
+     * a training session is completed.
+     */
+    @Query(
+        """
+        SELECT *
+        FROM training_session
+        WHERE localDate = :localDate
+        ORDER BY finishedAtEpochMs ASC
+        """
+    )
+    suspend fun getSessionsForDate(
+        localDate: String
+    ): List<TrainingSessionEntity>
+
+    /**
+     * Used to rebuild challenge progress safely from
+     * the user's recorded training history.
+     *
+     * Dates use ISO format: YYYY-MM-DD.
+     */
+    @Query(
+        """
+        SELECT *
+        FROM training_session
+        WHERE localDate BETWEEN :startDate AND :endDate
+        ORDER BY localDate ASC, finishedAtEpochMs ASC
+        """
+    )
+    suspend fun getSessionsBetweenDates(
+        startDate: String,
+        endDate: String
+    ): List<TrainingSessionEntity>
 }

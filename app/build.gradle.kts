@@ -11,6 +11,7 @@ plugins {
 
 android {
     namespace = "com.shubham.cornerstone"
+
     compileSdk {
         version = release(36)
     }
@@ -22,34 +23,52 @@ android {
         versionCode = 7
         versionName = "1.6"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner =
+            "androidx.test.runner.AndroidJUnitRunner"
 
-        // Read GROQ_API_KEY from local.properties (kept out of Git).
+        // Read GROQ_API_KEY from local.properties.
+        // This keeps the key out of Git.
         val localProperties = Properties()
         val localFile = rootProject.file("local.properties")
+
         if (localFile.exists()) {
-            localProperties.load(FileInputStream(localFile))
+            localProperties.load(
+                FileInputStream(localFile)
+            )
         }
-        val groqKey = localProperties.getProperty("GROQ_API_KEY") ?: ""
-        buildConfigField("String", "GROQ_API_KEY", "\"$groqKey\"")
+
+        val groqKey =
+            localProperties.getProperty("GROQ_API_KEY") ?: ""
+
+        buildConfigField(
+            "String",
+            "GROQ_API_KEY",
+            "\"$groqKey\""
+        )
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+
             proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
+                getDefaultProguardFile(
+                    "proguard-android-optimize.txt"
+                ),
                 "proguard-rules.pro"
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     kotlinOptions {
         jvmTarget = "11"
     }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -60,13 +79,17 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
-    implementation(platform(libs.androidx.compose.bom))
+
+    implementation(
+        platform(libs.androidx.compose.bom)
+    )
+
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
 
-    // Room — local database (the app's memory)
+    // Room — local database
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
@@ -74,31 +97,62 @@ dependencies {
     // Google Play Billing — subscriptions
     implementation(libs.billing.ktx)
 
-    // ViewModel + Navigation — connects data to screens
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    // ViewModel and navigation
+    implementation(
+        libs.androidx.lifecycle.viewmodel.compose
+    )
     implementation(libs.androidx.navigation.compose)
 
     // DataStore — lightweight settings storage
     implementation(libs.androidx.datastore.preferences)
 
-    // Networking — call the Groq AI API
+    // Networking — Groq API and remote data
     implementation(libs.retrofit)
     implementation(libs.retrofit.kotlinx.serialization)
     implementation(libs.okhttp.logging)
     implementation(libs.kotlinx.serialization.json)
 
+    // Coil — compatible with the project's Kotlin version
+    implementation(
+        "io.coil-kt.coil3:coil-compose:3.0.4"
+    )
+    implementation(
+        "io.coil-kt.coil3:coil-network-okhttp:3.0.4"
+    )
+
     testImplementation(libs.junit)
+
     androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-    debugImplementation(libs.androidx.compose.ui.tooling)
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
+    androidTestImplementation(
+        libs.androidx.espresso.core
+    )
+    androidTestImplementation(
+        platform(libs.androidx.compose.bom)
+    )
+    androidTestImplementation(
+        libs.androidx.compose.ui.test.junit4
+    )
+
+    debugImplementation(
+        libs.androidx.compose.ui.tooling
+    )
+    debugImplementation(
+        libs.androidx.compose.ui.test.manifest
+    )
 
     // CameraX — progress photo capture
     val cameraxVersion = "1.6.1"
-    implementation("androidx.camera:camera-core:$cameraxVersion")
-    implementation("androidx.camera:camera-camera2:$cameraxVersion")
-    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
-    implementation("androidx.camera:camera-view:$cameraxVersion")
+
+    implementation(
+        "androidx.camera:camera-core:$cameraxVersion"
+    )
+    implementation(
+        "androidx.camera:camera-camera2:$cameraxVersion"
+    )
+    implementation(
+        "androidx.camera:camera-lifecycle:$cameraxVersion"
+    )
+    implementation(
+        "androidx.camera:camera-view:$cameraxVersion"
+    )
 }

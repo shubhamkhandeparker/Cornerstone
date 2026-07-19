@@ -2,6 +2,8 @@ package com.shubham.cornerstone
 
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.os.SystemClock
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -43,6 +45,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.shubham.cornerstone.ui.theme.Charcoal
 import com.shubham.cornerstone.ui.theme.FightRed
 import com.shubham.cornerstone.ui.theme.InkBlack
@@ -50,28 +55,236 @@ import kotlinx.coroutines.delay
 
 private const val DEFAULT_REST_SECONDS = 15
 
+data class SessionCompletionResult(
+    val activeTrainingSeconds: Int,
+    val completedCombos: Int,
+    val skippedCombos: Int,
+    val pausedSeconds: Int,
+    val restSeconds: Int,
+    val genuinelyFinished: Boolean,
+    val totalCombos: Int
+)
+
+private class SessionTrackingState {
+    var timerActiveSeconds: Int = 0
+    var tapActiveMilliseconds: Long = 0L
+    var pausedMilliseconds: Long = 0L
+    var restMilliseconds: Long = 0L
+    var lastTimestampMilliseconds: Long = SystemClock.elapsedRealtime()
+
+    var completedCombos: Int = 0
+    var skippedCombos: Int = 0
+
+    val resolvedComboIndexes = mutableSetOf<Int>()
+}
+
 @Composable
 fun SessionScreen(
     combos: List<Combo>,
     secondsPerCombo: Int,
     restSeconds: Int = DEFAULT_REST_SECONDS,
     onFinishSession: () -> Unit,
-    onExit: () -> Unit
+    onExit: () -> Unit,
+    onSessionResult: (SessionCompletionResult) -> Unit = {}
 ) {
     if (combos.isEmpty()) {
         EmptySessionScreen(onExit = onExit)
         return
     }
 
+    val timerOn = secondsPerCombo > 0
+    val safeRestSeconds = restSeconds.coerceAtLeast(0)
+    val lifecycleOwner = LocalLifecycleOwner.current
+
     var index by remember { mutableIntStateOf(0) }
     var repeat by remember { mutableStateOf(false) }
     var resting by remember { mutableStateOf(false) }
     var isPaused by remember { mutableStateOf(false) }
+    var sessionFinished by remember { mutableStateOf(false) }
+
+    var isLifecycleResumed by remember {
+        mutableStateOf(
+            lifecycleOwner.lifecycle.currentState.isAtLeast(
+                Lifecycle.State.RESUMED
+            )
+        )
+    }
+
+    var drillActive by remember {
+        mutableStateOf(!timerOn)
+    }
+
+    val tracking = remember {
+        SessionTrackingState()
+    }
 
     val isLast = index == combos.lastIndex
-    val current = combos[index]
-    val timerOn = secondsPerCombo > 0
-    val safeRestSeconds = restSeconds.coerceAtLeast(0)
+    val effectivePaused = isPaused || !isLifecycleResumed
+
+    fun recordElapsedUntilNow() {
+        val now = SystemClock.elapsedRealtime()
+
+        val elapsedMilliseconds =
+            (now - tracking.lastTimestampMilliseconds).coerceAtLeast(0L)
+
+        tracking.lastTimestampMilliseconds = now
+
+        if (sessionFinished || elapsedMilliseconds == 0L) {
+            return
+        }
+
+        when {
+            effectivePaused -> {
+                tracking.pausedMilliseconds += elapsedMilliseconds
+            }
+
+            resting -> {
+                tracking.restMilliseconds += elapsedMilliseconds
+            }
+
+            !timerOn && drillActive -> {
+                tracking.tapActiveMilliseconds += elapsedMilliseconds
+            }
+        }
+    }
+
+    fun setDrillActive(active: Boolean) {
+        recordElapsedUntilNow()
+        drillActive = active
+    }
+
+    fun resolveCurrentCombo(completed: Boolean) {
+        if (!tracking.resolvedComboIndexes.add(index)) {
+            return
+        }
+
+        if (completed) {
+            tracking.completedCombos++
+        } else {
+            tracking.skippedCombos++
+        }
+    }
+
+    fun buildCompletionResult(): SessionCompletionResult {
+        val activeSeconds = if (timerOn) {
+            tracking.timerActiveSeconds
+        } else {
+            tracking.tapActiveMilliseconds.toRoundedSeconds()
+        }
+
+        return SessionCompletionResult(
+            activeTrainingSeconds = activeSeconds,
+            completedCombos = tracking.completedCombos,
+            skippedCombos = tracking.skippedCombos,
+            pausedSeconds = tracking.pausedMilliseconds.toRoundedSeconds(),
+            restSeconds = tracking.restMilliseconds.toRoundedSeconds(),
+            genuinelyFinished = true,
+            totalCombos = combos.size
+        )
+    }
+
+    fun finishSession() {
+        if (sessionFinished) {
+            return
+        }
+
+        recordElapsedUntilNow()
+
+        sessionFinished = true
+        drillActive = false
+        resting = false
+        isPaused = false
+
+        onSessionResult(buildCompletionResult())
+        onFinishSession()
+    }
+
+    fun advanceAfterResolvedCombo() {
+        recordElapsedUntilNow()
+
+        isPaused = false
+        drillActive = false
+
+        if (isLast) {
+            finishSession()
+        } else {
+            index++
+            drillActive = !timerOn
+        }
+    }
+
+    fun completeCurrentComboAndAdvance() {
+        recordElapsedUntilNow()
+        setDrillActive(false)
+        resolveCurrentCombo(completed = true)
+        advanceAfterResolvedCombo()
+    }
+
+    fun skipCurrentComboAndAdvance() {
+        recordElapsedUntilNow()
+        setDrillActive(false)
+        resolveCurrentCombo(completed = false)
+        advanceAfterResolvedCombo()
+    }
+
+    fun leaveWithoutCompletion() {
+        if (sessionFinished) {
+            return
+        }
+
+        recordElapsedUntilNow()
+
+        sessionFinished = true
+        drillActive = false
+        resting = false
+        isPaused = false
+
+        onExit()
+    }
+
+    BackHandler(
+        enabled = !sessionFinished,
+        onBack = {
+            leaveWithoutCompletion()
+        }
+    )
+
+    val currentRecordElapsed by rememberUpdatedState {
+        recordElapsedUntilNow()
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> {
+                    currentRecordElapsed()
+                    isLifecycleResumed = true
+                }
+
+                Lifecycle.Event.ON_PAUSE,
+                Lifecycle.Event.ON_STOP,
+                Lifecycle.Event.ON_DESTROY -> {
+                    currentRecordElapsed()
+                    isLifecycleResumed = false
+                }
+
+                else -> Unit
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(sessionFinished) {
+        while (!sessionFinished) {
+            delay(100L)
+            recordElapsedUntilNow()
+        }
+    }
 
     val toneGen = remember {
         ToneGenerator(
@@ -83,16 +296,6 @@ fun SessionScreen(
     DisposableEffect(Unit) {
         onDispose {
             toneGen.release()
-        }
-    }
-
-    fun advance() {
-        isPaused = false
-
-        if (isLast) {
-            onFinishSession()
-        } else {
-            index++
         }
     }
 
@@ -134,7 +337,7 @@ fun SessionScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .clickable {
-                            onExit()
+                            leaveWithoutCompletion()
                         }
                         .padding(8.dp)
                 )
@@ -162,7 +365,7 @@ fun SessionScreen(
                 if (resting) {
                     RestView(
                         seconds = safeRestSeconds,
-                        isPaused = isPaused,
+                        isPaused = effectivePaused,
                         onBeep = {
                             toneGen.startTone(
                                 ToneGenerator.TONE_PROP_BEEP,
@@ -170,13 +373,15 @@ fun SessionScreen(
                             )
                         },
                         onDone = {
+                            recordElapsedUntilNow()
+
                             resting = false
-                            advance()
+                            advanceAfterResolvedCombo()
                         }
                     )
                 } else {
                     AnimatedContent(
-                        targetState = current,
+                        targetState = index,
                         transitionSpec = {
                             fadeIn(
                                 animationSpec = tween(250)
@@ -185,13 +390,14 @@ fun SessionScreen(
                             )
                         },
                         label = "combo"
-                    ) { combo ->
+                    ) { comboIndex ->
                         ComboView(
-                            combo = combo,
+                            combo = combos[comboIndex],
+                            comboKey = comboIndex,
                             timerOn = timerOn,
                             seconds = secondsPerCombo,
                             repeat = repeat,
-                            isPaused = isPaused,
+                            isPaused = effectivePaused,
                             onBeep = {
                                 toneGen.startTone(
                                     ToneGenerator.TONE_PROP_BEEP,
@@ -201,10 +407,22 @@ fun SessionScreen(
                             onRoundStartBell = {
                                 ringBell()
                             },
+                            onDrillActiveChanged = { active ->
+                                setDrillActive(active)
+                            },
+                            onActiveSecond = {
+                                tracking.timerActiveSeconds++
+                            },
+                            onCycleCompleted = {
+                                resolveCurrentCombo(completed = true)
+                            },
                             onTimeUp = {
+                                setDrillActive(false)
+
                                 if (isLast) {
-                                    onFinishSession()
+                                    finishSession()
                                 } else {
+                                    recordElapsedUntilNow()
                                     resting = true
                                 }
                             }
@@ -249,6 +467,7 @@ fun SessionScreen(
                 if (timerOn) {
                     Button(
                         onClick = {
+                            recordElapsedUntilNow()
                             isPaused = !isPaused
                         },
                         modifier = Modifier
@@ -280,13 +499,22 @@ fun SessionScreen(
 
                 Button(
                     onClick = {
+                        recordElapsedUntilNow()
                         isPaused = false
 
-                        if (resting) {
-                            resting = false
-                            advance()
-                        } else {
-                            advance()
+                        when {
+                            resting -> {
+                                resting = false
+                                advanceAfterResolvedCombo()
+                            }
+
+                            timerOn -> {
+                                skipCurrentComboAndAdvance()
+                            }
+
+                            else -> {
+                                completeCurrentComboAndAdvance()
+                            }
                         }
                     },
                     modifier = Modifier
@@ -298,12 +526,26 @@ fun SessionScreen(
                     )
                 ) {
                     Text(
-                        text = if (isLast && !resting) {
-                            "Finish session"
-                        } else if (resting) {
-                            "Skip rest  →"
-                        } else {
-                            "Skip  →"
+                        text = when {
+                            resting -> {
+                                "Skip rest  →"
+                            }
+
+                            !timerOn && isLast -> {
+                                "Finish session"
+                            }
+
+                            !timerOn -> {
+                                "Complete & next  →"
+                            }
+
+                            isLast -> {
+                                "Skip & finish"
+                            }
+
+                            else -> {
+                                "Skip  →"
+                            }
                         },
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
@@ -319,15 +561,19 @@ fun SessionScreen(
 @Composable
 private fun ComboView(
     combo: Combo,
+    comboKey: Int,
     timerOn: Boolean,
     seconds: Int,
     repeat: Boolean,
     isPaused: Boolean,
     onBeep: () -> Unit,
     onRoundStartBell: () -> Unit,
+    onDrillActiveChanged: (Boolean) -> Unit,
+    onActiveSecond: () -> Unit,
+    onCycleCompleted: () -> Unit,
     onTimeUp: () -> Unit
 ) {
-    var getReady by remember(combo, timerOn) {
+    var getReady by remember(comboKey, timerOn) {
         mutableIntStateOf(
             if (timerOn) 3 else 0
         )
@@ -336,14 +582,18 @@ private fun ComboView(
     val currentPaused by rememberUpdatedState(isPaused)
     val currentOnBeep by rememberUpdatedState(onBeep)
     val currentRoundStartBell by rememberUpdatedState(onRoundStartBell)
+    val currentOnDrillActiveChanged by rememberUpdatedState(
+        onDrillActiveChanged
+    )
 
-    LaunchedEffect(combo, timerOn) {
+    LaunchedEffect(comboKey, timerOn) {
         if (timerOn) {
+            currentOnDrillActiveChanged(false)
             getReady = 3
 
             while (getReady > 0) {
                 while (currentPaused) {
-                    delay(100)
+                    delay(100L)
                 }
 
                 currentOnBeep()
@@ -356,10 +606,13 @@ private fun ComboView(
             }
 
             while (currentPaused) {
-                delay(100)
+                delay(100L)
             }
 
             currentRoundStartBell()
+            currentOnDrillActiveChanged(true)
+        } else {
+            currentOnDrillActiveChanged(true)
         }
     }
 
@@ -408,7 +661,12 @@ private fun ComboView(
                 repeat = repeat,
                 isPaused = isPaused,
                 onBeep = onBeep,
-                onTimeUp = onTimeUp
+                onActiveSecond = onActiveSecond,
+                onCycleCompleted = onCycleCompleted,
+                onTimeUp = {
+                    currentOnDrillActiveChanged(false)
+                    onTimeUp()
+                }
             )
 
             Spacer(modifier = Modifier.height(28.dp))
@@ -453,6 +711,8 @@ private fun CountdownText(
     repeat: Boolean,
     isPaused: Boolean,
     onBeep: () -> Unit,
+    onActiveSecond: () -> Unit,
+    onCycleCompleted: () -> Unit,
     onTimeUp: () -> Unit
 ) {
     var cycle by remember {
@@ -466,6 +726,8 @@ private fun CountdownText(
     val currentRepeat by rememberUpdatedState(repeat)
     val currentPaused by rememberUpdatedState(isPaused)
     val currentOnBeep by rememberUpdatedState(onBeep)
+    val currentOnActiveSecond by rememberUpdatedState(onActiveSecond)
+    val currentOnCycleCompleted by rememberUpdatedState(onCycleCompleted)
     val currentOnTimeUp by rememberUpdatedState(onTimeUp)
 
     LaunchedEffect(cycle, totalSeconds) {
@@ -477,6 +739,7 @@ private fun CountdownText(
             }
 
             remaining--
+            currentOnActiveSecond()
 
             if (remaining in 1..3) {
                 currentOnBeep()
@@ -484,10 +747,11 @@ private fun CountdownText(
         }
 
         while (currentPaused) {
-            delay(100)
+            delay(100L)
         }
 
         currentOnBeep()
+        currentOnCycleCompleted()
 
         if (currentRepeat) {
             cycle++
@@ -541,7 +805,7 @@ private fun RestView(
         }
 
         while (currentPaused) {
-            delay(100)
+            delay(100L)
         }
 
         currentOnBeep()
@@ -670,4 +934,14 @@ private suspend fun waitForActiveSecond(
             activeMilliseconds += 100L
         }
     }
+}
+
+private fun Long.toRoundedSeconds(): Int {
+    if (this <= 0L) {
+        return 0
+    }
+
+    return ((this + 500L) / 1_000L)
+        .coerceAtMost(Int.MAX_VALUE.toLong())
+        .toInt()
 }

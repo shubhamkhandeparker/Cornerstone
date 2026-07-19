@@ -1,6 +1,7 @@
 package com.shubham.cornerstone
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -22,11 +23,13 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,48 +43,124 @@ import java.time.LocalDate
 
 private const val FREE_REST_SECONDS = 15
 
+private const val ONE_HUNDRED_KICKS_CHALLENGE_ID =
+    "one_hundred_kicks"
+
+private const val FIGHT_GEAR_CATALOG_URL =
+    "https://shubhamkhandeparker.github.io/cornerstone-privacy-policy/fight-gear-catalog.json"
+
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val database = AppDatabase.get(applicationContext)
-
-        val userRepository = UserProfileRepository(
-            database.userProfileDao()
+        val database = AppDatabase.get(
+            applicationContext
         )
 
-        val weightRepository = WeightRepository(
-            weightDao = database.weightDao(),
-            profileDao = database.userProfileDao()
-        )
+        val userRepository =
+            UserProfileRepository(
+                database.userProfileDao()
+            )
 
-        val comboLibraryRepository = ComboLibraryRepository(
-            database.comboLibraryDao()
-        )
+        val weightRepository =
+            WeightRepository(
+                weightDao =
+                    database.weightDao(),
+                profileDao =
+                    database.userProfileDao()
+            )
 
-        val trainingSessionRepository = TrainingSessionRepository(
-            database.trainingSessionDao()
-        )
+        val comboLibraryRepository =
+            ComboLibraryRepository(
+                database.comboLibraryDao()
+            )
 
-        val progressPhotoRepository = ProgressPhotoRepository(
-            dao = database.progressPhotoDao(),
-            appContext = applicationContext
-        )
+        val trainingSessionRepository =
+            TrainingSessionRepository(
+                database.trainingSessionDao()
+            )
+
+        val trainingRepetitionRepository =
+            TrainingRepetitionRepository(
+                database.trainingRepetitionDao()
+            )
+
+        val progressPhotoRepository =
+            ProgressPhotoRepository(
+                dao =
+                    database.progressPhotoDao(),
+                appContext =
+                    applicationContext
+            )
+
+        val fightGearRepository:
+                FightGearRepository =
+            RemoteFightGearRepository(
+                api = FightGearApiFactory.api,
+                catalogUrl =
+                    FIGHT_GEAR_CATALOG_URL,
+                context =
+                    applicationContext
+            )
+
+        val fightGearAnalyticsRepository =
+            FightGearAnalyticsRepository(
+                dao =
+                    database
+                        .fightGearAnalyticsDao()
+            )
+
+        val challengeRepository =
+            ChallengeRepository(
+                dao =
+                    database
+                        .challengeProgressDao()
+            )
+
+        val challengeProgressEngine =
+            ChallengeProgressEngine(
+                challengeProgressDao =
+                    database
+                        .challengeProgressDao(),
+                trainingSessionRepository =
+                    trainingSessionRepository,
+                trainingRepetitionRepository =
+                    trainingRepetitionRepository
+            )
 
         setContent {
             CornerstoneTheme {
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    modifier =
+                        Modifier.fillMaxSize(),
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .background
                 ) {
                     CornerstoneApp(
-                        userRepository = userRepository,
-                        weightRepository = weightRepository,
-                        comboLibraryRepository = comboLibraryRepository,
-                        trainingSessionRepository = trainingSessionRepository,
-                        progressPhotoRepository = progressPhotoRepository
+                        userRepository =
+                            userRepository,
+                        weightRepository =
+                            weightRepository,
+                        comboLibraryRepository =
+                            comboLibraryRepository,
+                        trainingSessionRepository =
+                            trainingSessionRepository,
+                        trainingRepetitionRepository =
+                            trainingRepetitionRepository,
+                        progressPhotoRepository =
+                            progressPhotoRepository,
+                        fightGearRepository =
+                            fightGearRepository,
+                        fightGearAnalyticsRepository =
+                            fightGearAnalyticsRepository,
+                        challengeRepository =
+                            challengeRepository,
+                        challengeProgressEngine =
+                            challengeProgressEngine
                     )
                 }
             }
@@ -97,6 +176,11 @@ private enum class Screen {
     TECHNIQUES,
     TECHNIQUE_DETAIL,
     PLAYLISTS,
+    CHALLENGES,
+    CHALLENGE_DETAIL,
+    KICK_CHALLENGE_SESSION,
+    FIGHT_GEAR_DEALS,
+    FIGHT_GEAR_ANALYTICS,
     PAYWALL,
     WEIGHT_SETUP,
     WEIGHT_CUT,
@@ -111,51 +195,105 @@ private enum class PaywallDestination {
 
 @Composable
 fun CornerstoneApp(
-    userRepository: UserProfileRepository,
-    weightRepository: WeightRepository,
-    comboLibraryRepository: ComboLibraryRepository,
-    trainingSessionRepository: TrainingSessionRepository,
-    progressPhotoRepository: ProgressPhotoRepository
+    userRepository:
+    UserProfileRepository,
+    weightRepository:
+    WeightRepository,
+    comboLibraryRepository:
+    ComboLibraryRepository,
+    trainingSessionRepository:
+    TrainingSessionRepository,
+    trainingRepetitionRepository:
+    TrainingRepetitionRepository,
+    progressPhotoRepository:
+    ProgressPhotoRepository,
+    fightGearRepository:
+    FightGearRepository,
+    fightGearAnalyticsRepository:
+    FightGearAnalyticsRepository,
+    challengeRepository:
+    ChallengeRepository,
+    challengeProgressEngine:
+    ChallengeProgressEngine
 ) {
-    val profile by userRepository.profile.collectAsStateWithLifecycle(
-        initialValue = null
-    )
+    val context = LocalContext.current
 
-    val weightEntries by weightRepository.entries.collectAsStateWithLifecycle(
-        initialValue = emptyList()
-    )
+    val profile by userRepository.profile
+        .collectAsStateWithLifecycle(
+            initialValue = null
+        )
 
-    val todaySessionCount by trainingSessionRepository
+    val weightEntries by weightRepository.entries
+        .collectAsStateWithLifecycle(
+            initialValue = emptyList()
+        )
+
+    val todaySessionCount by
+    trainingSessionRepository
         .observeTodaySessionCount()
-        .collectAsStateWithLifecycle(initialValue = 0)
+        .collectAsStateWithLifecycle(
+            initialValue = 0
+        )
 
-    val todayDurationSeconds by trainingSessionRepository
+    val todayDurationSeconds by
+    trainingSessionRepository
         .observeTodayDurationSeconds()
-        .collectAsStateWithLifecycle(initialValue = 0)
+        .collectAsStateWithLifecycle(
+            initialValue = 0
+        )
+
+    val fightGearUiState by
+    fightGearRepository.uiState
+        .collectAsStateWithLifecycle()
+
+    val challengeViewModel:
+            ChallengeViewModel =
+        viewModel(
+            key = "challenge_view_model",
+            factory =
+                ChallengeViewModel.Factory(
+                    repository =
+                        challengeRepository
+                )
+        )
+
+    val challengeUiState by
+    challengeViewModel.uiState
+        .collectAsStateWithLifecycle()
 
     val currentProfile = profile
 
-    var screen by remember {
+    var screen by rememberSaveable {
         mutableStateOf(Screen.HOME)
     }
 
-    var paywallDestination by remember {
-        mutableStateOf(PaywallDestination.WEIGHT_CUT)
+    var paywallDestination by
+    rememberSaveable {
+        mutableStateOf(
+            PaywallDestination
+                .WEIGHT_CUT
+        )
     }
 
-    var secondsPerCombo by remember {
+    var secondsPerCombo by
+    rememberSaveable {
         mutableIntStateOf(0)
     }
 
-    var restSeconds by remember {
-        mutableIntStateOf(FREE_REST_SECONDS)
+    var restSeconds by
+    rememberSaveable {
+        mutableIntStateOf(
+            FREE_REST_SECONDS
+        )
     }
 
-    var combosPerSession by remember {
+    var combosPerSession by
+    rememberSaveable {
         mutableIntStateOf(6)
     }
 
-    var aiSessionOffset by remember {
+    var aiSessionOffset by
+    rememberSaveable {
         mutableIntStateOf(0)
     }
 
@@ -163,15 +301,63 @@ fun CornerstoneApp(
         mutableStateOf<CutStatus?>(null)
     }
 
-    var playlistSessionCombos by remember {
-        mutableStateOf<List<Combo>?>(null)
+    var playlistSessionCombos by
+    remember {
+        mutableStateOf<List<Combo>?>(
+            null
+        )
     }
 
-    var selectedTechniqueId by remember {
+    var selectedTechniqueId by
+    rememberSaveable {
         mutableStateOf("jab")
     }
 
+    var selectedChallengeId by
+    rememberSaveable {
+        mutableStateOf<String?>(
+            null
+        )
+    }
+
+    var selectedFightGearCategory by
+    rememberSaveable {
+        mutableStateOf(
+            FightGearCategory.ALL
+        )
+    }
+
+    val impressedFightGearProductIdsThisVisit =
+        remember {
+            mutableSetOf<String>()
+        }
+
+    val clickedFightGearProductIdsThisVisit =
+        remember {
+            mutableSetOf<String>()
+        }
+
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(
+        fightGearRepository
+    ) {
+        fightGearRepository.refresh()
+    }
+
+    LaunchedEffect(
+        fightGearAnalyticsRepository
+    ) {
+        fightGearAnalyticsRepository
+            .deleteEventsOlderThan90Days()
+    }
+
+    LaunchedEffect(
+        challengeProgressEngine
+    ) {
+        challengeProgressEngine
+            .refreshActiveChallenges()
+    }
 
     LaunchedEffect(
         screen,
@@ -180,25 +366,36 @@ fun CornerstoneApp(
         currentProfile?.fightDateEpochDay
     ) {
         if (screen == Screen.WEIGHT_CUT) {
-            cutStatus = weightRepository.computeStatus()
+            cutStatus =
+                weightRepository
+                    .computeStatus()
         }
     }
 
     when {
-        currentProfile == null || !currentProfile.introSeen -> {
+        currentProfile == null ||
+                !currentProfile.introSeen -> {
+
             IntroStoryScreen(
                 onFinished = {
                     scope.launch {
-                        userRepository.markIntroSeen()
+                        userRepository
+                            .markIntroSeen()
                     }
                 }
             )
         }
 
         !currentProfile.onboardingComplete -> {
-            val onboardingVm: OnboardingViewModel = viewModel(
-                factory = OnboardingViewModel.Factory(userRepository)
-            )
+            val onboardingVm:
+                    OnboardingViewModel =
+                viewModel(
+                    factory =
+                        OnboardingViewModel
+                            .Factory(
+                                userRepository
+                            )
+                )
 
             OnboardingScreen(
                 viewModel = onboardingVm,
@@ -209,70 +406,127 @@ fun CornerstoneApp(
         else -> {
             fun openWeightCut() {
                 if (!currentProfile.isPro) {
-                    paywallDestination = PaywallDestination.WEIGHT_CUT
+                    paywallDestination =
+                        PaywallDestination
+                            .WEIGHT_CUT
+
                     screen = Screen.PAYWALL
                 } else {
-                    screen = if (
-                        currentProfile.targetWeightKg != null &&
-                        currentProfile.fightDateEpochDay != null
-                    ) {
-                        Screen.WEIGHT_CUT
-                    } else {
-                        Screen.WEIGHT_SETUP
-                    }
+                    screen =
+                        if (
+                            currentProfile
+                                .targetWeightKg !=
+                            null &&
+                            currentProfile
+                                .fightDateEpochDay !=
+                            null
+                        ) {
+                            Screen.WEIGHT_CUT
+                        } else {
+                            Screen.WEIGHT_SETUP
+                        }
                 }
             }
 
             fun openProgressCamera() {
                 if (!currentProfile.isPro) {
-                    paywallDestination = PaywallDestination.PROGRESS_CAMERA
+                    paywallDestination =
+                        PaywallDestination
+                            .PROGRESS_CAMERA
+
                     screen = Screen.PAYWALL
                 } else {
-                    screen = Screen.PROGRESS_CAMERA
+                    screen =
+                        Screen.PROGRESS_CAMERA
                 }
             }
 
             fun openRestPaywall() {
-                paywallDestination = PaywallDestination.DURATION
+                paywallDestination =
+                    PaywallDestination
+                        .DURATION
+
                 screen = Screen.PAYWALL
             }
 
             fun finishSessionAndGoHome(
                 sessionType: String,
-                comboCount: Int
+                result: SessionCompletionResult
             ) {
-                scope.launch {
-                    userRepository.incrementSessionsCompleted()
+                val completedCombos =
+                    result.completedCombos
+                        .coerceIn(
+                            minimumValue = 0,
+                            maximumValue =
+                                result.totalCombos
+                                    .coerceAtLeast(0)
+                        )
 
-                    trainingSessionRepository.logFinishedSession(
-                        sessionType = sessionType,
-                        sport = currentProfile.sport,
-                        comboCount = comboCount,
-                        secondsPerCombo = secondsPerCombo
-                    )
-                }
+                val activeTrainingSeconds =
+                    result.activeTrainingSeconds
+                        .coerceAtLeast(0)
+
+                val shouldSaveSession =
+                    result.genuinelyFinished &&
+                            completedCombos > 0 &&
+                            activeTrainingSeconds > 0
 
                 playlistSessionCombos = null
                 screen = Screen.HOME
+
+                if (!shouldSaveSession) {
+                    Toast.makeText(
+                        context,
+                        "Session not saved because no active drill was completed.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    return
+                }
+
+                scope.launch {
+                    trainingSessionRepository
+                        .logFinishedSession(
+                            sessionType =
+                                sessionType,
+                            sport =
+                                currentProfile
+                                    .sport,
+                            comboCount =
+                                completedCombos,
+                            secondsPerCombo =
+                                secondsPerCombo,
+                            activeTrainingSeconds =
+                                activeTrainingSeconds
+                        )
+
+                    userRepository
+                        .incrementSessionsCompleted()
+
+                    challengeProgressEngine
+                        .refreshActiveChallenges()
+                }
             }
 
             fun finishAiSessionAndGoHome(
-                actualComboCount: Int
+                result: SessionCompletionResult
             ) {
-                aiSessionOffset += actualComboCount
+                aiSessionOffset +=
+                    result.totalCombos
+                        .coerceAtLeast(0)
 
                 finishSessionAndGoHome(
                     sessionType = "ai",
-                    comboCount = actualComboCount
+                    result = result
                 )
             }
 
             fun finishPlaylistSessionAndGoHome(
-                actualComboCount: Int
+                result: SessionCompletionResult
             ) {
                 finishSessionAndGoHome(
                     sessionType = "playlist",
-                    comboCount = actualComboCount
+                    result = result
                 )
             }
 
@@ -281,137 +535,619 @@ fun CornerstoneApp(
                 screen = Screen.HOME
             }
 
-            when (screen) {
-                Screen.HOME -> HomeScreen(
-                    profile = currentProfile,
-                    todaySessionCount = todaySessionCount,
-                    todayDurationSeconds = todayDurationSeconds,
-                    onStartSession = {
-                        playlistSessionCombos = null
-                        screen = Screen.DURATION
-                    },
-                    onOpenPlaylists = {
-                        screen = Screen.PLAYLISTS
-                    },
-                    onOpenGlossary = {
-                        screen = Screen.GLOSSARY
-                    },
-                    onOpenTechniques = {
-                        screen = Screen.TECHNIQUES
-                    },
-                    onOpenWeightCut = {
-                        openWeightCut()
-                    },
-                    onOpenProgressCamera = {
-                        openProgressCamera()
-                    }
-                )
+            fun saveKickChallengeResult(
+                result: KickChallengeSessionResult
+            ) {
+                val repetitions =
+                    result.repetitionCount
+                        .coerceAtLeast(0)
 
-                Screen.TECHNIQUES -> TechniquesScreen(
-                    onTechniqueClick = { techniqueId ->
-                        selectedTechniqueId = techniqueId
-                        screen = Screen.TECHNIQUE_DETAIL
-                    },
-                    onExit = {
-                        screen = Screen.HOME
-                    }
-                )
+                val activeSeconds =
+                    result.activeSeconds
+                        .coerceAtLeast(0)
 
-                Screen.TECHNIQUE_DETAIL -> TechniqueDetailScreen(
-                    techniqueId = selectedTechniqueId,
-                    onBack = {
-                        screen = Screen.TECHNIQUES
-                    }
-                )
+                if (
+                    !result.genuinelyFinished ||
+                    repetitions <= 0 ||
+                    activeSeconds <= 0
+                ) {
+                    screen =
+                        Screen.CHALLENGE_DETAIL
 
-                Screen.PLAYLISTS -> PlaylistsScreen(
-                    repository = comboLibraryRepository,
-                    onBack = {
-                        screen = Screen.HOME
-                    },
-                    onRunPlaylist = { playlistCombos ->
-                        playlistSessionCombos =
-                            playlistCombos.toSessionCombos()
+                    Toast.makeText(
+                        context,
+                        "Kick session was not saved.",
+                        Toast.LENGTH_SHORT
+                    ).show()
 
-                        if (secondsPerCombo <= 0) {
-                            secondsPerCombo = 30
+                    return
+                }
+
+                scope.launch {
+                    val sessionType =
+                        when (result.mode) {
+                            KickCountingMode
+                                .GUIDED_SOLO -> {
+
+                                "kick_guided"
+                            }
+
+                            KickCountingMode
+                                .MANUAL_PARTNER -> {
+
+                                "kick_manual"
+                            }
                         }
 
-                        if (!currentProfile.isPro) {
-                            restSeconds = FREE_REST_SECONDS
-                        }
+                    val trainingSessionId =
+                        trainingSessionRepository
+                            .logFinishedSession(
+                                sessionType =
+                                    sessionType,
+                                sport =
+                                    currentProfile
+                                        .sport,
+                                comboCount = 0,
+                                secondsPerCombo = 0,
+                                activeTrainingSeconds =
+                                    activeSeconds
+                            )
 
-                        screen = Screen.SESSION
-                    }
-                )
+                    trainingRepetitionRepository
+                        .logKickRepetitions(
+                            sessionType =
+                                sessionType,
+                            sport =
+                                currentProfile
+                                    .sport,
+                            repetitionCount =
+                                repetitions,
+                            activeSeconds =
+                                activeSeconds,
+                            trainingSessionId =
+                                trainingSessionId
+                        )
 
-                Screen.DURATION -> DurationPickerScreen(
-                    onStart = { seconds, comboCount ->
-                        secondsPerCombo = seconds
-                        combosPerSession = comboCount
-                        restSeconds = FREE_REST_SECONDS
-                        playlistSessionCombos = null
-                        screen = Screen.SESSION
-                    },
-                    onExit = {
-                        playlistSessionCombos = null
-                        screen = Screen.HOME
-                    },
-                    isPro = currentProfile.isPro,
-                    onUnlockPro = {
-                        openRestPaywall()
-                    },
-                    onStartWithRest = {
-                            seconds,
-                            comboCount,
-                            selectedRestSeconds ->
+                    userRepository
+                        .incrementSessionsCompleted()
 
-                        secondsPerCombo = seconds
-                        combosPerSession = comboCount
+                    challengeProgressEngine
+                        .refreshActiveChallenges()
 
-                        restSeconds = if (currentProfile.isPro) {
-                            selectedRestSeconds.coerceAtLeast(1)
+                    screen =
+                        Screen.CHALLENGE_DETAIL
+
+                    Toast.makeText(
+                        context,
+                        if (
+                            result.completedTarget
+                        ) {
+                            "Kick target completed."
                         } else {
-                            FREE_REST_SECONDS
-                        }
+                            "$repetitions kicks saved."
+                        },
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
 
-                        playlistSessionCombos = null
-                        screen = Screen.SESSION
+            when (screen) {
+                Screen.HOME -> {
+                    HomeScreen(
+                        profile =
+                            currentProfile,
+                        todaySessionCount =
+                            todaySessionCount,
+                        todayDurationSeconds =
+                            todayDurationSeconds,
+                        onStartSession = {
+                            playlistSessionCombos =
+                                null
+
+                            screen =
+                                Screen.DURATION
+                        },
+                        onOpenPlaylists = {
+                            screen =
+                                Screen.PLAYLISTS
+                        },
+                        onOpenGlossary = {
+                            screen =
+                                Screen.GLOSSARY
+                        },
+                        onOpenTechniques = {
+                            screen =
+                                Screen.TECHNIQUES
+                        },
+                        onOpenWeightCut = {
+                            openWeightCut()
+                        },
+                        onOpenProgressCamera = {
+                            openProgressCamera()
+                        },
+                        onOpenFightGearDeals = {
+                            selectedFightGearCategory =
+                                FightGearCategory.ALL
+
+                            impressedFightGearProductIdsThisVisit
+                                .clear()
+
+                            clickedFightGearProductIdsThisVisit
+                                .clear()
+
+                            screen =
+                                Screen
+                                    .FIGHT_GEAR_DEALS
+                        },
+                        onOpenChallenges = {
+                            selectedChallengeId =
+                                null
+
+                            screen =
+                                Screen.CHALLENGES
+
+                            scope.launch {
+                                challengeProgressEngine
+                                    .refreshActiveChallenges()
+                            }
+                        }
+                    )
+                }
+
+                Screen.CHALLENGES -> {
+                    ChallengesScreen(
+                        viewModel =
+                            challengeViewModel,
+                        onOpenChallenge = {
+                                challengeId ->
+
+                            selectedChallengeId =
+                                challengeId
+
+                            screen =
+                                Screen
+                                    .CHALLENGE_DETAIL
+                        },
+                        onExit = {
+                            screen = Screen.HOME
+                        }
+                    )
+                }
+
+                Screen.CHALLENGE_DETAIL -> {
+                    val challenge =
+                        challengeUiState
+                            .challenges
+                            .firstOrNull {
+                                    item ->
+
+                                item.definition.id ==
+                                        selectedChallengeId
+                            }
+
+                    if (challenge == null) {
+                        ChallengeLoadingScreen()
+                    } else {
+                        ChallengeDetailScreen(
+                            challenge =
+                                challenge,
+                            isProcessing =
+                                challengeUiState
+                                    .isProcessing,
+                            onStart = {
+                                challengeViewModel
+                                    .startChallenge(
+                                        challenge
+                                            .definition
+                                            .id
+                                    )
+                            },
+                            onAbandon = {
+                                challengeViewModel
+                                    .abandonChallenge(
+                                        challenge
+                                            .definition
+                                            .id
+                                    )
+                            },
+                            onRestart = {
+                                challengeViewModel
+                                    .restartChallenge(
+                                        challenge
+                                            .definition
+                                            .id
+                                    )
+                            },
+                            onStartKickSession = {
+                                if (
+                                    challenge
+                                        .definition
+                                        .id ==
+                                    ONE_HUNDRED_KICKS_CHALLENGE_ID &&
+                                    challenge.status ==
+                                    ChallengeStatus.ACTIVE
+                                ) {
+                                    screen =
+                                        Screen
+                                            .KICK_CHALLENGE_SESSION
+                                }
+                            },
+                            onBack = {
+                                screen =
+                                    Screen.CHALLENGES
+                            }
+                        )
                     }
-                )
+                }
+
+                Screen.KICK_CHALLENGE_SESSION -> {
+                    val challenge =
+                        challengeUiState
+                            .challenges
+                            .firstOrNull {
+                                    item ->
+
+                                item.definition.id ==
+                                        selectedChallengeId
+                            }
+
+                    if (
+                        challenge == null ||
+                        challenge.definition.id !=
+                        ONE_HUNDRED_KICKS_CHALLENGE_ID ||
+                        challenge.status !=
+                        ChallengeStatus.ACTIVE
+                    ) {
+                        ChallengeLoadingScreen()
+
+                        LaunchedEffect(
+                            challenge?.status
+                        ) {
+                            if (
+                                challenge != null &&
+                                challenge.status !=
+                                ChallengeStatus.ACTIVE
+                            ) {
+                                screen =
+                                    Screen
+                                        .CHALLENGE_DETAIL
+                            }
+                        }
+                    } else {
+                        val requiredRepetitions =
+                            challenge.definition
+                                .requiredRepetitionsPerDay
+                                .coerceAtLeast(1)
+
+                        val alreadyValidated =
+                            challenge.progress
+                                ?.totalValidatedRepetitions
+                                ?.coerceAtLeast(0)
+                                ?: 0
+
+                        val remainingRepetitions =
+                            (
+                                    requiredRepetitions -
+                                            alreadyValidated
+                                    ).coerceAtLeast(1)
+
+                        KickChallengeSessionScreen(
+                            targetRepetitions =
+                                remainingRepetitions,
+                            onSaveResult = {
+                                    result ->
+
+                                saveKickChallengeResult(
+                                    result = result
+                                )
+                            },
+                            onExit = {
+                                screen =
+                                    Screen
+                                        .CHALLENGE_DETAIL
+                            }
+                        )
+                    }
+                }
+
+                Screen.FIGHT_GEAR_DEALS -> {
+                    FightGearDealsScreen(
+                        uiState =
+                            fightGearUiState,
+                        selectedCategory =
+                            selectedFightGearCategory,
+                        onCategorySelected = {
+                                category ->
+
+                            selectedFightGearCategory =
+                                category
+                        },
+                        onProductImpression = {
+                                product ->
+
+                            val shouldRecord =
+                                impressedFightGearProductIdsThisVisit
+                                    .add(
+                                        product.id
+                                    )
+
+                            if (shouldRecord) {
+                                scope.launch {
+                                    val savedSuccessfully =
+                                        runCatching {
+                                            fightGearAnalyticsRepository
+                                                .logProductImpression(
+                                                    product =
+                                                        product
+                                                )
+                                        }.isSuccess
+
+                                    if (
+                                        !savedSuccessfully
+                                    ) {
+                                        impressedFightGearProductIdsThisVisit
+                                            .remove(
+                                                product.id
+                                            )
+                                    }
+                                }
+                            }
+                        },
+                        onViewDeal = {
+                                product ->
+
+                            val shouldRecordClick =
+                                clickedFightGearProductIdsThisVisit
+                                    .add(
+                                        product.id
+                                    )
+
+                            scope.launch {
+                                if (
+                                    shouldRecordClick
+                                ) {
+                                    val savedSuccessfully =
+                                        runCatching {
+                                            fightGearAnalyticsRepository
+                                                .logViewDealClick(
+                                                    product =
+                                                        product
+                                                )
+                                        }.isSuccess
+
+                                    if (
+                                        !savedSuccessfully
+                                    ) {
+                                        clickedFightGearProductIdsThisVisit
+                                            .remove(
+                                                product.id
+                                            )
+                                    }
+                                }
+
+                                val opened =
+                                    FightGearLinkOpener
+                                        .open(
+                                            context =
+                                                context,
+                                            productUrl =
+                                                product
+                                                    .productUrl
+                                        )
+
+                                if (!opened) {
+                                    Toast.makeText(
+                                        context,
+                                        "Unable to open the deal link.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        },
+                        onRetry = {
+                            scope.launch {
+                                fightGearRepository
+                                    .refresh()
+                            }
+                        },
+                        onExit = {
+                            screen = Screen.HOME
+                        },
+                        onOpenAnalytics = {
+                            screen =
+                                Screen
+                                    .FIGHT_GEAR_ANALYTICS
+                        }
+                    )
+                }
+
+                Screen.FIGHT_GEAR_ANALYTICS -> {
+                    FightGearAnalyticsScreen(
+                        repository =
+                            fightGearAnalyticsRepository,
+                        onExit = {
+                            screen =
+                                Screen
+                                    .FIGHT_GEAR_DEALS
+                        },
+                        onAnalyticsReset = {
+                            impressedFightGearProductIdsThisVisit
+                                .clear()
+
+                            clickedFightGearProductIdsThisVisit
+                                .clear()
+                        }
+                    )
+                }
+
+                Screen.TECHNIQUES -> {
+                    TechniquesScreen(
+                        onTechniqueClick = {
+                                techniqueId ->
+
+                            selectedTechniqueId =
+                                techniqueId
+
+                            screen =
+                                Screen
+                                    .TECHNIQUE_DETAIL
+                        },
+                        onExit = {
+                            screen = Screen.HOME
+                        }
+                    )
+                }
+
+                Screen.TECHNIQUE_DETAIL -> {
+                    TechniqueDetailScreen(
+                        techniqueId =
+                            selectedTechniqueId,
+                        onBack = {
+                            screen =
+                                Screen.TECHNIQUES
+                        }
+                    )
+                }
+
+                Screen.PLAYLISTS -> {
+                    PlaylistsScreen(
+                        repository =
+                            comboLibraryRepository,
+                        onBack = {
+                            screen = Screen.HOME
+                        },
+                        onRunPlaylist = {
+                                playlistCombos ->
+
+                            playlistSessionCombos =
+                                playlistCombos
+                                    .toSessionCombos()
+
+                            if (
+                                secondsPerCombo <= 0
+                            ) {
+                                secondsPerCombo = 30
+                            }
+
+                            if (
+                                !currentProfile.isPro
+                            ) {
+                                restSeconds =
+                                    FREE_REST_SECONDS
+                            }
+
+                            screen = Screen.SESSION
+                        }
+                    )
+                }
+
+                Screen.DURATION -> {
+                    DurationPickerScreen(
+                        onStart = {
+                                seconds,
+                                comboCount ->
+
+                            secondsPerCombo = seconds
+
+                            combosPerSession =
+                                comboCount
+
+                            restSeconds =
+                                FREE_REST_SECONDS
+
+                            playlistSessionCombos =
+                                null
+
+                            screen = Screen.SESSION
+                        },
+                        onExit = {
+                            playlistSessionCombos =
+                                null
+
+                            screen = Screen.HOME
+                        },
+                        isPro =
+                            currentProfile.isPro,
+                        onUnlockPro = {
+                            openRestPaywall()
+                        },
+                        onStartWithRest = {
+                                seconds,
+                                comboCount,
+                                selectedRestSeconds ->
+
+                            secondsPerCombo = seconds
+
+                            combosPerSession =
+                                comboCount
+
+                            restSeconds =
+                                if (
+                                    currentProfile
+                                        .isPro
+                                ) {
+                                    selectedRestSeconds
+                                        .coerceAtLeast(
+                                            1
+                                        )
+                                } else {
+                                    FREE_REST_SECONDS
+                                }
+
+                            playlistSessionCombos =
+                                null
+
+                            screen = Screen.SESSION
+                        }
+                    )
+                }
 
                 Screen.SESSION -> {
                     val currentPlaylistSessionCombos =
                         playlistSessionCombos
 
                     val effectiveRestSeconds =
-                        if (currentProfile.isPro) {
-                            restSeconds.coerceAtLeast(1)
+                        if (
+                            currentProfile.isPro
+                        ) {
+                            restSeconds
+                                .coerceAtLeast(1)
                         } else {
                             FREE_REST_SECONDS
                         }
 
-                    if (currentPlaylistSessionCombos != null) {
+                    if (
+                        currentPlaylistSessionCombos !=
+                        null
+                    ) {
                         SessionScreen(
-                            combos = currentPlaylistSessionCombos,
-                            secondsPerCombo = secondsPerCombo,
-                            restSeconds = effectiveRestSeconds,
-                            onFinishSession = {
-                                finishPlaylistSessionAndGoHome(
-                                    actualComboCount =
-                                        currentPlaylistSessionCombos.size
-                                )
-                            },
+                            combos =
+                                currentPlaylistSessionCombos,
+                            secondsPerCombo =
+                                secondsPerCombo,
+                            restSeconds =
+                                effectiveRestSeconds,
+                            onFinishSession = { },
                             onExit = {
                                 exitSessionAndGoHome()
+                            },
+                            onSessionResult = {
+                                    result ->
+
+                                finishPlaylistSessionAndGoHome(
+                                    result = result
+                                )
                             }
                         )
                     } else {
-                        val sessionVm: SessionViewModel = viewModel(
-                            key = "session"
-                        )
+                        val sessionVm:
+                                SessionViewModel =
+                            viewModel(
+                                key = "session"
+                            )
 
-                        val state by sessionVm.state
+                        val state by
+                        sessionVm.state
                             .collectAsStateWithLifecycle()
 
                         LaunchedEffect(
@@ -423,33 +1159,56 @@ fun CornerstoneApp(
                             aiSessionOffset
                         ) {
                             sessionVm.load(
-                                sport = currentProfile.sport,
-                                level = currentProfile.level,
-                                dominance = currentProfile.dominance,
-                                stance = currentProfile.stance,
-                                count = combosPerSession,
-                                offset = aiSessionOffset
+                                sport =
+                                    currentProfile
+                                        .sport,
+                                level =
+                                    currentProfile
+                                        .level,
+                                dominance =
+                                    currentProfile
+                                        .dominance,
+                                stance =
+                                    currentProfile
+                                        .stance,
+                                count =
+                                    combosPerSession,
+                                offset =
+                                    aiSessionOffset
                             )
                         }
 
-                        when (val sessionState = state) {
-                            is SessionViewModel.State.Loading -> {
+                        when (
+                            val sessionState =
+                                state
+                        ) {
+                            is SessionViewModel
+                            .State.Loading -> {
+
                                 GeneratingScreen()
                             }
 
-                            is SessionViewModel.State.Ready -> {
+                            is SessionViewModel
+                            .State.Ready -> {
+
                                 SessionScreen(
-                                    combos = sessionState.combos,
-                                    secondsPerCombo = secondsPerCombo,
-                                    restSeconds = effectiveRestSeconds,
-                                    onFinishSession = {
-                                        finishAiSessionAndGoHome(
-                                            actualComboCount =
-                                                sessionState.combos.size
-                                        )
-                                    },
+                                    combos =
+                                        sessionState
+                                            .combos,
+                                    secondsPerCombo =
+                                        secondsPerCombo,
+                                    restSeconds =
+                                        effectiveRestSeconds,
+                                    onFinishSession = { },
                                     onExit = {
                                         exitSessionAndGoHome()
+                                    },
+                                    onSessionResult = {
+                                            result ->
+
+                                        finishAiSessionAndGoHome(
+                                            result = result
+                                        )
                                     }
                                 )
                             }
@@ -457,98 +1216,201 @@ fun CornerstoneApp(
                     }
                 }
 
-                Screen.GLOSSARY -> GlossaryScreen(
-                    onExit = {
-                        screen = Screen.HOME
-                    }
-                )
+                Screen.GLOSSARY -> {
+                    GlossaryScreen(
+                        onExit = {
+                            screen = Screen.HOME
+                        }
+                    )
+                }
 
-                Screen.PAYWALL -> PaywallScreen(
-                    onProEntitled = {
-                        scope.launch {
-                            userRepository.setPro(true)
+                Screen.PAYWALL -> {
+                    PaywallScreen(
+                        onProEntitled = {
+                            scope.launch {
+                                userRepository
+                                    .setPro(true)
 
-                            screen = when (paywallDestination) {
-                                PaywallDestination.DURATION -> {
-                                    Screen.DURATION
-                                }
-
-                                PaywallDestination.PROGRESS_CAMERA -> {
-                                    Screen.PROGRESS_CAMERA
-                                }
-
-                                PaywallDestination.WEIGHT_CUT -> {
-                                    if (
-                                        currentProfile.targetWeightKg != null &&
-                                        currentProfile.fightDateEpochDay != null
+                                screen =
+                                    when (
+                                        paywallDestination
                                     ) {
-                                        Screen.WEIGHT_CUT
-                                    } else {
-                                        Screen.WEIGHT_SETUP
+                                        PaywallDestination
+                                            .DURATION -> {
+
+                                            Screen.DURATION
+                                        }
+
+                                        PaywallDestination
+                                            .PROGRESS_CAMERA -> {
+
+                                            Screen
+                                                .PROGRESS_CAMERA
+                                        }
+
+                                        PaywallDestination
+                                            .WEIGHT_CUT -> {
+
+                                            if (
+                                                currentProfile
+                                                    .targetWeightKg !=
+                                                null &&
+                                                currentProfile
+                                                    .fightDateEpochDay !=
+                                                null
+                                            ) {
+                                                Screen
+                                                    .WEIGHT_CUT
+                                            } else {
+                                                Screen
+                                                    .WEIGHT_SETUP
+                                            }
+                                        }
+                                    }
+                            }
+                        },
+                        onExit = {
+                            screen =
+                                when (
+                                    paywallDestination
+                                ) {
+                                    PaywallDestination
+                                        .DURATION -> {
+
+                                        Screen.DURATION
+                                    }
+
+                                    PaywallDestination
+                                        .PROGRESS_CAMERA,
+                                    PaywallDestination
+                                        .WEIGHT_CUT -> {
+
+                                        Screen.HOME
                                     }
                                 }
+                        }
+                    )
+                }
+
+                Screen.WEIGHT_SETUP -> {
+                    WeightSetupScreen(
+                        onSave = {
+                                targetKg,
+                                fightInDays,
+                                useKg ->
+
+                            scope.launch {
+                                weightRepository
+                                    .setPlan(
+                                        targetKg =
+                                            targetKg,
+                                        fightDate =
+                                            LocalDate
+                                                .now()
+                                                .plusDays(
+                                                    fightInDays
+                                                        .toLong()
+                                                ),
+                                        useKg =
+                                            useKg
+                                    )
+
+                                cutStatus =
+                                    weightRepository
+                                        .computeStatus()
+
+                                screen =
+                                    Screen.WEIGHT_CUT
                             }
+                        },
+                        onExit = {
+                            screen = Screen.HOME
                         }
-                    },
-                    onExit = {
-                        screen = when (paywallDestination) {
-                            PaywallDestination.DURATION -> {
-                                Screen.DURATION
+                    )
+                }
+
+                Screen.WEIGHT_CUT -> {
+                    WeightCutScreen(
+                        status = cutStatus,
+                        entries =
+                            weightEntries,
+                        useKg =
+                            currentProfile
+                                .weightUnit ==
+                                    "kg",
+                        onLogWeight = {
+                                weightKg ->
+
+                            scope.launch {
+                                weightRepository
+                                    .logWeight(
+                                        weightKg
+                                    )
+
+                                cutStatus =
+                                    weightRepository
+                                        .computeStatus()
                             }
-
-                            PaywallDestination.PROGRESS_CAMERA,
-                            PaywallDestination.WEIGHT_CUT -> {
-                                Screen.HOME
-                            }
+                        },
+                        onExit = {
+                            screen = Screen.HOME
                         }
-                    }
-                )
+                    )
+                }
 
-                Screen.WEIGHT_SETUP -> WeightSetupScreen(
-                    onSave = { targetKg, fightInDays, useKg ->
-                        scope.launch {
-                            weightRepository.setPlan(
-                                targetKg = targetKg,
-                                fightDate = LocalDate.now().plusDays(
-                                    fightInDays.toLong()
-                                ),
-                                useKg = useKg
-                            )
-
-                            cutStatus =
-                                weightRepository.computeStatus()
-
-                            screen = Screen.WEIGHT_CUT
+                Screen.PROGRESS_CAMERA -> {
+                    ProgressCameraScreen(
+                        repository =
+                            progressPhotoRepository,
+                        onExit = {
+                            screen = Screen.HOME
                         }
-                    },
-                    onExit = {
-                        screen = Screen.HOME
-                    }
-                )
-
-                Screen.WEIGHT_CUT -> WeightCutScreen(
-                    status = cutStatus,
-                    entries = weightEntries,
-                    useKg = currentProfile.weightUnit == "kg",
-                    onLogWeight = { weightKg ->
-                        scope.launch {
-                            weightRepository.logWeight(weightKg)
-                            cutStatus =
-                                weightRepository.computeStatus()
-                        }
-                    },
-                    onExit = {
-                        screen = Screen.HOME
-                    }
-                )
-
-                Screen.PROGRESS_CAMERA -> ProgressCameraScreen(
-                    repository = progressPhotoRepository,
-                    onExit = {
-                        screen = Screen.HOME
-                    }
-                )
+                    )
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun ChallengeLoadingScreen() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF161518),
+                        InkBlack
+                    )
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment =
+                Alignment.CenterHorizontally
+        ) {
+            CircularProgressIndicator(
+                color = FightRed
+            )
+
+            Spacer(
+                modifier =
+                    Modifier.height(18.dp)
+            )
+
+            Text(
+                text =
+                    "Loading challenge...",
+                fontSize = 15.sp,
+                fontWeight =
+                    FontWeight.Bold,
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onBackground
+            )
         }
     }
 }
@@ -569,32 +1431,45 @@ private fun GeneratingScreen() {
         contentAlignment = Alignment.Center
     ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            horizontalAlignment =
+                Alignment.CenterHorizontally,
+            verticalArrangement =
+                Arrangement.Center
         ) {
             CircularProgressIndicator(
                 color = FightRed
             )
 
             Spacer(
-                modifier = Modifier.height(24.dp)
+                modifier =
+                    Modifier.height(24.dp)
             )
 
             Text(
-                text = "Building tonight's session...",
+                text =
+                    "Building tonight's session...",
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
+                fontWeight =
+                    FontWeight.Bold,
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onBackground
             )
 
             Spacer(
-                modifier = Modifier.height(6.dp)
+                modifier =
+                    Modifier.height(6.dp)
             )
 
             Text(
-                text = "Adapting to your level",
+                text =
+                    "Adapting to your level",
                 fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurfaceVariant
             )
         }
     }

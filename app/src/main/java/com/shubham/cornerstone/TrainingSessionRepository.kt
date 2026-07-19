@@ -9,50 +9,130 @@ class TrainingSessionRepository(
 
     fun observeTodaySessionCount(): Flow<Int> {
         return dao.observeSessionCountForDate(
-            localDate = todayString()
+            localDate = dateString(
+                LocalDate.now()
+            )
         )
     }
 
     fun observeTodayDurationSeconds(): Flow<Int> {
         return dao.observeTotalDurationSecondsForDate(
-            localDate = todayString()
+            localDate = dateString(
+                LocalDate.now()
+            )
         )
     }
 
-    fun observeRecentSessions(): Flow<List<TrainingSessionEntity>> {
+    fun observeRecentSessions():
+            Flow<List<TrainingSessionEntity>> {
+
         return dao.observeRecentSessions()
+    }
+
+    fun observeSessionsForDate(
+        date: LocalDate
+    ): Flow<List<TrainingSessionEntity>> {
+        return dao.observeSessionsForDate(
+            localDate = dateString(date)
+        )
+    }
+
+    suspend fun getSessionsForDate(
+        date: LocalDate
+    ): List<TrainingSessionEntity> {
+        return dao.getSessionsForDate(
+            localDate = dateString(date)
+        )
+    }
+
+    suspend fun getSessionsBetweenDates(
+        startDate: LocalDate,
+        endDate: LocalDate
+    ): List<TrainingSessionEntity> {
+        require(!endDate.isBefore(startDate)) {
+            "End date cannot be before start date."
+        }
+
+        return dao.getSessionsBetweenDates(
+            startDate = dateString(startDate),
+            endDate = dateString(endDate)
+        )
+    }
+
+    suspend fun getTodaySessions():
+            List<TrainingSessionEntity> {
+
+        return getSessionsForDate(
+            date = LocalDate.now()
+        )
     }
 
     suspend fun logFinishedSession(
         sessionType: String,
         sport: String,
         comboCount: Int,
-        secondsPerCombo: Int
-    ) {
-        val safeComboCount = comboCount.coerceAtLeast(1)
-        val safeSeconds = secondsPerCombo.coerceAtLeast(0)
+        secondsPerCombo: Int,
+        activeTrainingSeconds: Int? = null
+    ): Long {
+        val safeComboCount =
+            comboCount.coerceAtLeast(0)
 
-        val durationSeconds = if (safeSeconds == 0) {
-            // Tap-to-advance mode does not have exact time.
-            // We estimate 15 sec per combo so daily stats still feel useful.
-            safeComboCount * 15
-        } else {
-            safeComboCount * safeSeconds
-        }
+        val safeSecondsPerCombo =
+            secondsPerCombo.coerceAtLeast(0)
 
-        dao.insertSession(
+        val durationSeconds =
+            activeTrainingSeconds
+                ?.coerceAtLeast(0)
+                ?: calculateEstimatedDuration(
+                    comboCount =
+                        safeComboCount,
+                    secondsPerCombo =
+                        safeSecondsPerCombo
+                )
+
+        val session =
             TrainingSessionEntity(
-                sessionType = sessionType,
-                sport = sport,
-                comboCount = safeComboCount,
-                secondsPerCombo = safeSeconds,
-                durationSeconds = durationSeconds,
-                localDate = todayString()
+                sessionType =
+                    sessionType.trim()
+                        .ifBlank { "training" },
+                sport =
+                    sport.trim()
+                        .ifBlank { "Boxing" },
+                comboCount =
+                    safeComboCount,
+                secondsPerCombo =
+                    safeSecondsPerCombo,
+                durationSeconds =
+                    durationSeconds,
+                localDate =
+                    dateString(LocalDate.now())
             )
-        )
+
+        return dao.insertSession(session)
     }
 
-    private fun todayString(): String {
-        return LocalDate.now().toString()
+    private fun calculateEstimatedDuration(
+        comboCount: Int,
+        secondsPerCombo: Int
+    ): Int {
+        if (comboCount <= 0) {
+            return 0
+        }
+
+        return if (secondsPerCombo == 0) {
+            /*
+             * Legacy fallback for callers that do not yet
+             * provide accurate active training time.
+             */
+            comboCount * 15
+        } else {
+            comboCount * secondsPerCombo
+        }
+    }
+
+    private fun dateString(
+        date: LocalDate
+    ): String {
+        return date.toString()
     }
 }

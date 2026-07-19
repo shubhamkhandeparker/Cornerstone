@@ -47,7 +47,9 @@ fun HomeScreen(
     onOpenGlossary: () -> Unit,
     onOpenTechniques: () -> Unit,
     onOpenWeightCut: () -> Unit,
-    onOpenProgressCamera: () -> Unit
+    onOpenProgressCamera: () -> Unit,
+    onOpenFightGearDeals: () -> Unit = {},
+    onOpenChallenges: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
 
@@ -69,101 +71,184 @@ fun HomeScreen(
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .verticalScroll(scrollState)
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = 20.dp)
         ) {
-            Spacer(Modifier.height(24.dp))
+            Spacer(
+                modifier = Modifier.height(20.dp)
+            )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Evening, fighter.",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+            HomeHeader(
+                sport = profile.sport
+            )
 
-                    Spacer(Modifier.height(2.dp))
-
-                    Text(
-                        text = "Time to work.",
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                }
-
-                Surface(
-                    modifier = Modifier.size(44.dp),
-                    shape = CircleShape,
-                    color = Charcoal
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = profile.sport.take(1),
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = FightRed
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(24.dp))
+            Spacer(
+                modifier = Modifier.height(18.dp)
+            )
 
             TodayTrainingCard(
                 todaySessionCount = todaySessionCount,
-                todayDurationSeconds = todayDurationSeconds
+                todayDurationSeconds =
+                    todayDurationSeconds
             )
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(
+                modifier = Modifier.height(16.dp)
+            )
 
             SessionCard(
                 sport = profile.sport,
                 level = profile.level,
-                sessionNumber = profile.sessionsCompleted + 1,
+                sessionNumber =
+                    profile.sessionsCompleted + 1,
                 onClick = onStartSession
             )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(
+                modifier = Modifier.height(22.dp)
+            )
+
+            SectionTitle(
+                title = "Quick access",
+                subtitle =
+                    "Everything you need to keep improving"
+            )
+
+            Spacer(
+                modifier = Modifier.height(12.dp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(12.dp)
+            ) {
+                QuickActionCard(
+                    title = "Challenges",
+                    subtitle = "Build streaks",
+                    badge = "NEW",
+                    highlighted = true,
+                    modifier = Modifier.weight(1f),
+                    onClick = onOpenChallenges
+                )
+
+                QuickActionCard(
+                    title = "Playlists",
+                    subtitle = "Saved combos",
+                    badge = "TRAIN",
+                    modifier = Modifier.weight(1f),
+                    onClick = onOpenPlaylists
+                )
+            }
+
+            Spacer(
+                modifier = Modifier.height(12.dp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.spacedBy(12.dp)
+            ) {
+                QuickActionCard(
+                    title = "Techniques",
+                    subtitle = "Learn clearly",
+                    badge = "LEARN",
+                    modifier = Modifier.weight(1f),
+                    onClick = onOpenTechniques
+                )
+
+                QuickActionCard(
+                    title = "Fight gear",
+                    subtitle = "Deals and gear",
+                    badge = "GEAR",
+                    modifier = Modifier.weight(1f),
+                    onClick = onOpenFightGearDeals
+                )
+            }
+
+            Spacer(
+                modifier = Modifier.height(22.dp)
+            )
+
+            SectionTitle(
+                title = "Tools",
+                subtitle = "Progress and beginner support"
+            )
+
+            Spacer(
+                modifier = Modifier.height(12.dp)
+            )
+
+            ToolsCard(
+                sport = profile.sport,
+                hasWeightPlan =
+                    profile.targetWeightKg != null &&
+                            profile.fightDateEpochDay != null,
+                onOpenWeightCut = onOpenWeightCut,
+                onOpenProgressCamera =
+                    onOpenProgressCamera,
+                onOpenGlossary = onOpenGlossary
+            )
+
+            Spacer(
+                modifier = Modifier.height(32.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeHeader(
+    sport: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement =
+            Arrangement.SpaceBetween,
+        verticalAlignment =
+            Alignment.CenterVertically
+    ) {
+        Column {
+            Text(
+                text = "Evening, fighter.",
+                fontSize = 13.sp,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+
+            Spacer(
+                modifier = Modifier.height(2.dp)
+            )
 
             Text(
-                text = "No equipment needed. Build your round and get moving.",
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth()
+                text = "Time to work.",
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Black,
+                color =
+                    MaterialTheme.colorScheme
+                        .onBackground
             )
+        }
 
-            Spacer(Modifier.height(16.dp))
-
-            PlaylistsCard(
-                onClick = onOpenPlaylists
-            )
-
-            Spacer(Modifier.height(14.dp))
-
-            LearnTechniquesCard(
-                onClick = onOpenTechniques
-            )
-
-            Spacer(Modifier.height(14.dp))
-
-            WeightCutCard(
-                hasPlan = profile.targetWeightKg != null && profile.fightDateEpochDay != null,
-                onOpenWeightCut = onOpenWeightCut,
-                onOpenProgressCamera = onOpenProgressCamera
-            )
-
-            Spacer(Modifier.height(14.dp))
-
-            GlossaryCard(
-                sport = profile.sport,
-                onClick = onOpenGlossary
-            )
-
-            Spacer(Modifier.height(40.dp))
+        Surface(
+            modifier = Modifier.size(44.dp),
+            shape = CircleShape,
+            color = Charcoal
+        ) {
+            Box(
+                contentAlignment =
+                    Alignment.Center
+            ) {
+                Text(
+                    text = sport
+                        .take(1)
+                        .uppercase(),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    color = FightRed
+                )
+            }
         }
     }
 }
@@ -176,63 +261,89 @@ private fun TodayTrainingCard(
     val minutes = todayDurationSeconds / 60
     val seconds = todayDurationSeconds % 60
 
-    val durationText = when {
-        todayDurationSeconds <= 0 -> "0 min"
-        minutes <= 0 -> "${seconds}s"
-        seconds == 0 -> "$minutes min"
-        else -> "$minutes min ${seconds}s"
-    }
+    val durationText =
+        when {
+            todayDurationSeconds <= 0 -> {
+                "0 min"
+            }
+
+            minutes <= 0 -> {
+                "${seconds}s"
+            }
+
+            seconds == 0 -> {
+                "$minutes min"
+            }
+
+            else -> {
+                "$minutes min ${seconds}s"
+            }
+        }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        color = FightRed.copy(alpha = 0.13f)
+        shape = RoundedCornerShape(16.dp),
+        color = FightRed.copy(alpha = 0.12f)
     ) {
         Row(
-            modifier = Modifier.padding(18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.padding(
+                horizontal = 16.dp,
+                vertical = 14.dp
+            ),
+            verticalAlignment =
+                Alignment.CenterVertically,
+            horizontalArrangement =
+                Arrangement.SpaceBetween
         ) {
-            Column {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
                     text = "Today’s work",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
+                    color =
+                        MaterialTheme.colorScheme
+                            .onBackground
                 )
 
-                Spacer(Modifier.height(4.dp))
+                Spacer(
+                    modifier = Modifier.height(3.dp)
+                )
 
                 Text(
-                    text = if (todaySessionCount == 0) {
-                        "No sessions finished yet"
-                    } else {
-                        "Keep the streak alive"
-                    },
+                    text =
+                        if (todaySessionCount == 0) {
+                            "Your first round is waiting"
+                        } else {
+                            "Keep the momentum going"
+                        },
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
                 )
             }
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TodayStatBlock(
-                    value = todaySessionCount.toString(),
-                    label = if (todaySessionCount == 1) {
+            TodayStatBlock(
+                value =
+                    todaySessionCount.toString(),
+                label =
+                    if (todaySessionCount == 1) {
                         "session"
                     } else {
                         "sessions"
                     }
-                )
+            )
 
-                Spacer(Modifier.width(18.dp))
+            Spacer(
+                modifier = Modifier.width(16.dp)
+            )
 
-                TodayStatBlock(
-                    value = durationText,
-                    label = "trained"
-                )
-            }
+            TodayStatBlock(
+                value = durationText,
+                label = "trained"
+            )
         }
     }
 }
@@ -247,269 +358,354 @@ private fun TodayStatBlock(
     ) {
         Text(
             text = value,
-            fontSize = 18.sp,
+            fontSize = 17.sp,
             fontWeight = FontWeight.Black,
             color = FightRed
         )
 
         Text(
             text = label,
-            fontSize = 11.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant
         )
     }
 }
 
 @Composable
-private fun PlaylistsCard(
+private fun SectionTitle(
+    title: String,
+    subtitle: String
+) {
+    Column {
+        Text(
+            text = title,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Black,
+            color =
+                MaterialTheme.colorScheme
+                    .onBackground
+        )
+
+        Spacer(
+            modifier = Modifier.height(2.dp)
+        )
+
+        Text(
+            text = subtitle,
+            fontSize = 12.sp,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun QuickActionCard(
+    title: String,
+    subtitle: String,
+    badge: String,
+    modifier: Modifier = Modifier,
+    highlighted: Boolean = false,
     onClick: () -> Unit
 ) {
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
+            .height(116.dp)
             .clickable {
                 onClick()
             },
-        shape = RoundedCornerShape(16.dp),
-        color = Charcoal
+        shape = RoundedCornerShape(18.dp),
+        color =
+            if (highlighted) {
+                FightRed.copy(alpha = 0.13f)
+            } else {
+                Charcoal
+            }
     ) {
-        Row(
-            modifier = Modifier.padding(18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(15.dp),
+            verticalArrangement =
+                Arrangement.SpaceBetween
         ) {
-            Column {
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color =
+                    if (highlighted) {
+                        FightRed.copy(alpha = 0.18f)
+                    } else {
+                        Color(0xFF29282C)
+                    }
+            ) {
                 Text(
-                    text = "Combo playlists",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-
-                Text(
-                    text = "Save coach combos and train them later",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = badge,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 0.8.sp,
+                    color =
+                        if (highlighted) {
+                            FightRed
+                        } else {
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                        },
+                    modifier = Modifier.padding(
+                        horizontal = 9.dp,
+                        vertical = 5.dp
+                    )
                 )
             }
 
-            Text(
-                text = "->",
-                fontSize = 20.sp,
-                color = FightRed
+            Column {
+                Text(
+                    text = title,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Black,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onBackground
+                )
+
+                Spacer(
+                    modifier = Modifier.height(2.dp)
+                )
+
+                Text(
+                    text = subtitle,
+                    fontSize = 11.sp,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ToolsCard(
+    sport: String,
+    hasWeightPlan: Boolean,
+    onOpenWeightCut: () -> Unit,
+    onOpenProgressCamera: () -> Unit,
+    onOpenGlossary: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = Charcoal
+    ) {
+        Column {
+            WeightToolRow(
+                hasPlan = hasWeightPlan,
+                onOpenWeightCut =
+                    onOpenWeightCut,
+                onOpenProgressCamera =
+                    onOpenProgressCamera
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(
+                        Color.White.copy(
+                            alpha = 0.06f
+                        )
+                    )
+            )
+
+            GlossaryToolRow(
+                sport = sport,
+                onClick = onOpenGlossary
             )
         }
     }
 }
 
 @Composable
-private fun LearnTechniquesCard(
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                onClick()
-            },
-        shape = RoundedCornerShape(16.dp),
-        color = FightRed.copy(alpha = 0.12f)
-    ) {
-        Row(
-            modifier = Modifier.padding(18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = "Learn techniques",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-
-                Spacer(Modifier.height(3.dp))
-
-                Text(
-                    text = "Jab, cross, hook, sprawl and beginner fight basics explained clearly.",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(Modifier.width(12.dp))
-
-            Surface(
-                shape = RoundedCornerShape(999.dp),
-                color = FightRed.copy(alpha = 0.18f)
-            ) {
-                Text(
-                    text = "LEARN",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.sp,
-                    color = FightRed,
-                    modifier = Modifier.padding(
-                        horizontal = 12.dp,
-                        vertical = 7.dp
-                    )
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun WeightCutCard(
+private fun WeightToolRow(
     hasPlan: Boolean,
     onOpenWeightCut: () -> Unit,
     onOpenProgressCamera: () -> Unit
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = Charcoal
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalAlignment =
+            Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable {
-                        onOpenWeightCut()
-                    }
-            ) {
-                Text(
-                    text = "Weight cut",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-
-                Text(
-                    text = if (hasPlan) {
-                        "Log today and check your pace"
-                    } else {
-                        "Set target and fight timeline"
-                    },
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(Modifier.width(10.dp))
-
-            Surface(
-                modifier = Modifier.clickable {
-                    onOpenProgressCamera()
-                },
-                shape = RoundedCornerShape(999.dp),
-                color = FightRed.copy(alpha = 0.13f)
-            ) {
-                Text(
-                    text = "CAM",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.sp,
-                    color = FightRed,
-                    modifier = Modifier.padding(
-                        horizontal = 12.dp,
-                        vertical = 7.dp
-                    )
-                )
-            }
-
-            Spacer(Modifier.width(8.dp))
-
-            Surface(
-                modifier = Modifier.clickable {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .clickable {
                     onOpenWeightCut()
-                },
-                shape = RoundedCornerShape(999.dp),
-                color = FightRed.copy(alpha = 0.16f)
-            ) {
-                Text(
-                    text = if (hasPlan) {
-                        "TRACK"
+                }
+        ) {
+            Text(
+                text = "Weight cut",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color =
+                    MaterialTheme.colorScheme
+                        .onBackground
+            )
+
+            Spacer(
+                modifier = Modifier.height(2.dp)
+            )
+
+            Text(
+                text =
+                    if (hasPlan) {
+                        "Log weight and check your pace"
                     } else {
-                        "SET UP"
+                        "Set your target and timeline"
                     },
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.sp,
-                    color = FightRed,
-                    modifier = Modifier.padding(
-                        horizontal = 12.dp,
-                        vertical = 7.dp
-                    )
-                )
-            }
+                fontSize = 12.sp,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
         }
+
+        CompactToolButton(
+            text = "CAM",
+            onClick = onOpenProgressCamera
+        )
+
+        Spacer(
+            modifier = Modifier.width(8.dp)
+        )
+
+        CompactToolButton(
+            text =
+                if (hasPlan) {
+                    "TRACK"
+                } else {
+                    "SET UP"
+                },
+            onClick = onOpenWeightCut
+        )
     }
 }
 
 @Composable
-private fun GlossaryCard(
+private fun GlossaryToolRow(
     sport: String,
     onClick: () -> Unit
 ) {
-    Surface(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
                 onClick()
-            },
-        shape = RoundedCornerShape(16.dp),
-        color = Charcoal
-    ) {
-        Row(
-            modifier = Modifier.padding(18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(
-                    text = glossaryTitle(sport),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-
-                Text(
-                    text = glossarySubtitle(sport),
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
+            .padding(16.dp),
+        verticalAlignment =
+            Alignment.CenterVertically,
+        horizontalArrangement =
+            Arrangement.SpaceBetween
+    ) {
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = glossaryTitle(sport),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color =
+                    MaterialTheme.colorScheme
+                        .onBackground
+            )
+
+            Spacer(
+                modifier = Modifier.height(2.dp)
+            )
 
             Text(
-                text = "->",
-                fontSize = 20.sp,
-                color = FightRed
+                text = glossarySubtitle(sport),
+                fontSize = 12.sp,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
             )
+        }
+
+        Text(
+            text = "→",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = FightRed
+        )
+    }
+}
+
+@Composable
+private fun CompactToolButton(
+    text: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.clickable {
+            onClick()
+        },
+        shape = RoundedCornerShape(999.dp),
+        color = FightRed.copy(alpha = 0.14f)
+    ) {
+        Text(
+            text = text,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 0.7.sp,
+            color = FightRed,
+            modifier = Modifier.padding(
+                horizontal = 11.dp,
+                vertical = 7.dp
+            )
+        )
+    }
+}
+
+private fun glossaryTitle(
+    sport: String
+): String {
+    return when (sport) {
+        "Muay Thai" -> {
+            "New to Muay Thai?"
+        }
+
+        "MMA" -> {
+            "New to MMA?"
+        }
+
+        else -> {
+            "New to boxing?"
         }
     }
 }
 
-private fun glossaryTitle(sport: String): String {
+private fun glossarySubtitle(
+    sport: String
+): String {
     return when (sport) {
-        "Muay Thai" -> "New to Muay Thai?"
-        "MMA" -> "New to MMA?"
-        else -> "New to boxing?"
-    }
-}
+        "Muay Thai" -> {
+            "Learn strikes, knees and elbows"
+        }
 
-private fun glossarySubtitle(sport: String): String {
-    return when (sport) {
-        "Muay Thai" -> "Learn strikes, knees, elbows"
-        "MMA" -> "Learn strikes and fight terms"
-        else -> "Learn what 1, 2, 3 mean"
+        "MMA" -> {
+            "Learn strikes and fight terms"
+        }
+
+        else -> {
+            "Learn what 1, 2 and 3 mean"
+        }
     }
 }
 
@@ -523,12 +719,14 @@ private fun SessionCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(250.dp)
-            .clip(RoundedCornerShape(24.dp))
+            .height(228.dp)
+            .clip(
+                RoundedCornerShape(22.dp)
+            )
             .clickable {
                 onClick()
             },
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(22.dp),
         color = Charcoal
     ) {
         Box {
@@ -538,7 +736,9 @@ private fun SessionCard(
                     .background(
                         Brush.linearGradient(
                             colors = listOf(
-                                FightRedDark.copy(alpha = 0.55f),
+                                FightRedDark.copy(
+                                    alpha = 0.55f
+                                ),
                                 Color.Transparent
                             )
                         )
@@ -547,75 +747,102 @@ private fun SessionCard(
 
             Box(
                 modifier = Modifier
-                    .size(220.dp)
-                    .blur(90.dp)
+                    .size(200.dp)
+                    .blur(85.dp)
                     .background(
-                        FightRed.copy(alpha = 0.20f),
+                        FightRed.copy(
+                            alpha = 0.19f
+                        ),
                         CircleShape
                     )
-                    .align(Alignment.BottomEnd)
+                    .align(
+                        Alignment.BottomEnd
+                    )
             )
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.SpaceBetween
+                    .padding(22.dp),
+                verticalArrangement =
+                    Arrangement.SpaceBetween
             ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment =
+                        Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(8.dp)
+                            .size(7.dp)
                             .clip(CircleShape)
                             .background(FightRed)
                     )
 
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(
+                        modifier =
+                            Modifier.width(8.dp)
+                    )
 
                     Text(
-                        text = "SESSION $sessionNumber",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 2.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text =
+                            "SESSION $sessionNumber",
+                        fontSize = 11.sp,
+                        fontWeight =
+                            FontWeight.Bold,
+                        letterSpacing = 1.8.sp,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
                     )
                 }
 
                 Column {
                     Text(
-                        text = "$sport\nShadow + Drills",
-                        fontSize = 32.sp,
-                        lineHeight = 36.sp,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.onBackground
+                        text =
+                            "$sport\nShadow + Drills",
+                        fontSize = 29.sp,
+                        lineHeight = 33.sp,
+                        fontWeight =
+                            FontWeight.Black,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onBackground
                     )
 
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(
+                        modifier =
+                            Modifier.height(5.dp)
+                    )
 
                     Text(
-                        text = "$level · adapted to you",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text =
+                            "$level · adapted to you",
+                        fontSize = 13.sp,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
                     )
                 }
 
                 Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = FightRed,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    shape =
+                        RoundedCornerShape(13.dp),
+                    color = FightRed
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(52.dp),
-                        contentAlignment = Alignment.Center
+                            .height(48.dp),
+                        contentAlignment =
+                            Alignment.Center
                     ) {
                         Text(
-                            text = "Start training  ->",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
+                            text = "Start training  →",
+                            fontSize = 15.sp,
+                            fontWeight =
+                                FontWeight.Bold,
                             color = Color.White
                         )
                     }
