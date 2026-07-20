@@ -56,6 +56,7 @@ fun ChallengeDetailScreen(
     onStart: () -> Unit,
     onAbandon: () -> Unit,
     onRestart: () -> Unit,
+    onClaimReward: () -> Unit = {},
     onStartKickSession: () -> Unit = {},
     onBack: () -> Unit
 ) {
@@ -184,8 +185,14 @@ fun ChallengeDetailScreen(
                     ChallengeDetailRewardCard(
                         reward =
                             challenge.definition.reward,
+                        status =
+                            challenge.status,
                         rewardClaimed =
-                            challenge.rewardClaimed
+                            challenge.rewardClaimed,
+                        enabled =
+                            !isProcessing,
+                        onClaimReward =
+                            onClaimReward
                     )
                 }
 
@@ -751,7 +758,10 @@ private fun ProgressValueRow(
 @Composable
 private fun ChallengeDetailRewardCard(
     reward: ChallengeReward,
-    rewardClaimed: Boolean
+    status: ChallengeStatus,
+    rewardClaimed: Boolean,
+    enabled: Boolean,
+    onClaimReward: () -> Unit
 ) {
     val rewardText =
         when (reward.type) {
@@ -767,6 +777,11 @@ private fun ChallengeDetailRewardCard(
                 "${reward.proPassDays}-Day Cornerstone Pro Pass"
             }
         }
+
+    val canClaimReward =
+        status == ChallengeStatus.COMPLETED &&
+                !rewardClaimed &&
+                reward.type != ChallengeRewardType.NONE
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -797,17 +812,107 @@ private fun ChallengeDetailRewardCard(
                         .onBackground
             )
 
-            if (rewardClaimed) {
+            when {
+                rewardClaimed -> {
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
+
+                    Text(
+                        text = "Reward claimed",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = FightRed
+                    )
+                }
+
+                status == ChallengeStatus.COMPLETED &&
+                        reward.type ==
+                        ChallengeRewardType.NONE -> {
+
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
+
+                    Text(
+                        text = "Challenge completed",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+
+                status != ChallengeStatus.COMPLETED &&
+                        reward.type !=
+                        ChallengeRewardType.NONE -> {
+
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
+
+                    Text(
+                        text =
+                            "Complete the challenge to unlock this reward.",
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+            }
+
+            if (canClaimReward) {
                 Spacer(
-                    modifier = Modifier.height(8.dp)
+                    modifier = Modifier.height(16.dp)
                 )
 
-                Text(
-                    text = "Reward claimed",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = FightRed
-                )
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            enabled = enabled
+                        ) {
+                            onClaimReward()
+                        },
+                    shape = RoundedCornerShape(15.dp),
+                    color =
+                        if (enabled) {
+                            FightRed
+                        } else {
+                            Color(0xFF29282C)
+                        }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        contentAlignment =
+                            Alignment.Center
+                    ) {
+                        Text(
+                            text =
+                                if (enabled) {
+                                    "Claim Reward"
+                                } else {
+                                    "Claiming..."
+                                },
+                            fontSize = 15.sp,
+                            fontWeight =
+                                FontWeight.Black,
+                            color =
+                                if (enabled) {
+                                    Color.White
+                                } else {
+                                    MaterialTheme
+                                        .colorScheme
+                                        .onSurfaceVariant
+                                }
+                        )
+                    }
+                }
             }
         }
     }

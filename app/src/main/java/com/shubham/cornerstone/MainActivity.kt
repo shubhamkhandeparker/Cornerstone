@@ -87,6 +87,11 @@ class MainActivity : ComponentActivity() {
                 database.trainingRepetitionDao()
             )
 
+        val cornerstonePointsRepository =
+            CornerstonePointsRepository(
+                database.cornerstonePointsDao()
+            )
+
         val progressPhotoRepository =
             ProgressPhotoRepository(
                 dao =
@@ -116,7 +121,9 @@ class MainActivity : ComponentActivity() {
             ChallengeRepository(
                 dao =
                     database
-                        .challengeProgressDao()
+                        .challengeProgressDao(),
+                pointsRepository =
+                    cornerstonePointsRepository
             )
 
         val challengeProgressEngine =
@@ -357,6 +364,22 @@ fun CornerstoneApp(
     ) {
         challengeProgressEngine
             .refreshActiveChallenges()
+    }
+
+    LaunchedEffect(
+        challengeUiState.message
+    ) {
+        val currentMessage =
+            challengeUiState.message
+                ?: return@LaunchedEffect
+
+        Toast.makeText(
+            context,
+            currentMessage,
+            Toast.LENGTH_SHORT
+        ).show()
+
+        challengeViewModel.clearMessage()
     }
 
     LaunchedEffect(
@@ -753,6 +776,14 @@ fun CornerstoneApp(
                             onRestart = {
                                 challengeViewModel
                                     .restartChallenge(
+                                        challenge
+                                            .definition
+                                            .id
+                                    )
+                            },
+                            onClaimReward = {
+                                challengeViewModel
+                                    .claimReward(
                                         challenge
                                             .definition
                                             .id

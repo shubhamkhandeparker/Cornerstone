@@ -20,8 +20,37 @@ data class ChallengeWithProgress(
         get() = status == ChallengeStatus.COMPLETED
 }
 
+sealed interface ChallengeRewardClaimResult {
+
+    data class PointsAwarded(
+        val points: Int
+    ) : ChallengeRewardClaimResult
+
+    data class PointsAlreadyAwarded(
+        val points: Int
+    ) : ChallengeRewardClaimResult
+
+    data class ProPassPending(
+        val proPassDays: Int
+    ) : ChallengeRewardClaimResult
+
+    data object NoReward :
+        ChallengeRewardClaimResult
+
+    data object AlreadyClaimed :
+        ChallengeRewardClaimResult
+
+    data object PointsSystemUnavailable :
+        ChallengeRewardClaimResult
+
+    data object InvalidReward :
+        ChallengeRewardClaimResult
+}
+
 class ChallengeRepository(
-    private val dao: ChallengeProgressDao
+    private val dao: ChallengeProgressDao,
+    private val pointsRepository:
+    CornerstonePointsRepository? = null
 ) {
 
     fun observeChallenges():
@@ -44,10 +73,12 @@ class ChallengeRepository(
 
                         ChallengeWithProgress(
                             definition = definition,
-                            progress = entity
-                                ?.toChallengeProgress(),
+                            progress =
+                                entity
+                                    ?.toChallengeProgress(),
                             rewardClaimed =
-                                entity?.rewardClaimed
+                                entity
+                                    ?.rewardClaimed
                                     ?: false
                         )
                     }
@@ -58,22 +89,25 @@ class ChallengeRepository(
         challengeId: String
     ): Flow<ChallengeWithProgress?> {
 
-        return dao.observeProgress(challengeId)
-            .map { entity ->
-                val definition =
-                    ChallengeCatalog.getChallenge(
-                        challengeId
-                    ) ?: return@map null
+        return dao.observeProgress(
+            challengeId
+        ).map { entity ->
+            val definition =
+                ChallengeCatalog.getChallenge(
+                    challengeId
+                ) ?: return@map null
 
-                ChallengeWithProgress(
-                    definition = definition,
-                    progress = entity
+            ChallengeWithProgress(
+                definition = definition,
+                progress =
+                    entity
                         ?.toChallengeProgress(),
-                    rewardClaimed =
-                        entity?.rewardClaimed
-                            ?: false
-                )
-            }
+                rewardClaimed =
+                    entity
+                        ?.rewardClaimed
+                        ?: false
+            )
+        }
     }
 
     fun observeActiveChallenges():
@@ -83,14 +117,17 @@ class ChallengeRepository(
             .map { entities ->
                 entities.mapNotNull { entity ->
                     val definition =
-                        ChallengeCatalog.getChallenge(
-                            entity.challengeId
-                        ) ?: return@mapNotNull null
+                        ChallengeCatalog
+                            .getChallenge(
+                                entity.challengeId
+                            )
+                            ?: return@mapNotNull null
 
                     ChallengeWithProgress(
                         definition = definition,
                         progress =
-                            entity.toChallengeProgress(),
+                            entity
+                                .toChallengeProgress(),
                         rewardClaimed =
                             entity.rewardClaimed
                     )
@@ -105,14 +142,17 @@ class ChallengeRepository(
             .map { entities ->
                 entities.mapNotNull { entity ->
                     val definition =
-                        ChallengeCatalog.getChallenge(
-                            entity.challengeId
-                        ) ?: return@mapNotNull null
+                        ChallengeCatalog
+                            .getChallenge(
+                                entity.challengeId
+                            )
+                            ?: return@mapNotNull null
 
                     ChallengeWithProgress(
                         definition = definition,
                         progress =
-                            entity.toChallengeProgress(),
+                            entity
+                                .toChallengeProgress(),
                         rewardClaimed =
                             entity.rewardClaimed
                     )
@@ -137,7 +177,9 @@ class ChallengeRepository(
             }
 
             val existing =
-                dao.getProgress(challengeId)
+                dao.getProgress(
+                    challengeId
+                )
 
             require(
                 existing?.status !=
@@ -148,14 +190,16 @@ class ChallengeRepository(
 
             val progress =
                 ChallengeProgress(
-                    challengeId = challengeId,
+                    challengeId =
+                        challengeId,
                     status =
                         ChallengeStatus.ACTIVE,
                     integrityStatus =
                         ChallengeIntegrityStatus.VALID,
                     startedAtEpochDay =
                         today.toEpochDay(),
-                    completedAtEpochDay = null,
+                    completedAtEpochDay =
+                        null,
                     currentDay = 1,
                     completedDays = 0,
                     currentStreakDays = 0,
@@ -170,8 +214,10 @@ class ChallengeRepository(
                         progress = progress,
                         rewardClaimed = false,
                         createdAtEpochMs =
-                            existing?.createdAtEpochMs
-                                ?: System.currentTimeMillis()
+                            existing
+                                ?.createdAtEpochMs
+                                ?: System
+                                    .currentTimeMillis()
                     )
             )
         }
@@ -182,10 +228,11 @@ class ChallengeRepository(
     ): Result<Unit> {
         return runCatching {
             val existing =
-                dao.getProgress(challengeId)
-                    ?: error(
-                        "Challenge progress not found."
-                    )
+                dao.getProgress(
+                    challengeId
+                ) ?: error(
+                    "Challenge progress not found."
+                )
 
             require(
                 existing.status ==
@@ -197,7 +244,9 @@ class ChallengeRepository(
             dao.updateStatus(
                 challengeId = challengeId,
                 status =
-                    ChallengeStatus.ABANDONED.name
+                    ChallengeStatus
+                        .ABANDONED
+                        .name
             )
         }
     }
@@ -207,7 +256,9 @@ class ChallengeRepository(
         today: LocalDate = LocalDate.now()
     ): Result<Unit> {
         return runCatching {
-            dao.deleteProgress(challengeId)
+            dao.deleteProgress(
+                challengeId
+            )
 
             startChallenge(
                 challengeId = challengeId,
@@ -216,30 +267,203 @@ class ChallengeRepository(
         }
     }
 
-    suspend fun markRewardClaimed(
+    suspend fun claimReward(
         challengeId: String
-    ): Result<Unit> {
+    ): Result<ChallengeRewardClaimResult> {
         return runCatching {
+            val safeChallengeId =
+                challengeId.trim()
+
+            require(
+                safeChallengeId.isNotBlank()
+            ) {
+                "Challenge ID cannot be blank."
+            }
+
+            val definition =
+                ChallengeCatalog.getChallenge(
+                    safeChallengeId
+                ) ?: error(
+                    "Challenge definition not found."
+                )
+
             val existing =
-                dao.getProgress(challengeId)
-                    ?: error(
-                        "Challenge progress not found."
-                    )
+                dao.getProgress(
+                    safeChallengeId
+                ) ?: error(
+                    "Challenge progress not found."
+                )
 
             require(
                 existing.status ==
-                        ChallengeStatus.COMPLETED.name
+                        ChallengeStatus
+                            .COMPLETED
+                            .name
             ) {
                 "The challenge must be completed before claiming its reward."
             }
 
-            require(!existing.rewardClaimed) {
-                "This reward has already been claimed."
+            if (existing.rewardClaimed) {
+                ChallengeRewardClaimResult
+                    .AlreadyClaimed
+            } else {
+                when (
+                    definition.reward.type
+                ) {
+                    ChallengeRewardType.NONE -> {
+                        dao.markRewardClaimed(
+                            challengeId =
+                                safeChallengeId
+                        )
+
+                        ChallengeRewardClaimResult
+                            .NoReward
+                    }
+
+                    ChallengeRewardType.POINTS -> {
+                        claimPointsReward(
+                            definition =
+                                definition
+                        )
+                    }
+
+                    ChallengeRewardType.PRO_PASS -> {
+                        /*
+                         * Do not mark this reward claimed
+                         * until earned Pro Pass storage has
+                         * been written successfully.
+                         */
+                        ChallengeRewardClaimResult
+                            .ProPassPending(
+                                proPassDays =
+                                    definition
+                                        .reward
+                                        .proPassDays
+                                        .coerceAtLeast(1)
+                            )
+                    }
+                }
+            }
+        }
+    }
+
+    /*
+     * Kept for compatibility with existing callers.
+     */
+    suspend fun markRewardClaimed(
+        challengeId: String
+    ): Result<Unit> {
+        return runCatching {
+            when (
+                val claimResult =
+                    claimReward(
+                        challengeId =
+                            challengeId
+                    ).getOrThrow()
+            ) {
+                is ChallengeRewardClaimResult
+                .PointsAwarded -> Unit
+
+                is ChallengeRewardClaimResult
+                .PointsAlreadyAwarded -> Unit
+
+                ChallengeRewardClaimResult
+                    .NoReward -> Unit
+
+                ChallengeRewardClaimResult
+                    .AlreadyClaimed -> {
+
+                    error(
+                        "This reward has already been claimed."
+                    )
+                }
+
+                is ChallengeRewardClaimResult
+                .ProPassPending -> {
+
+                    error(
+                        "Earned Pro Pass storage is not implemented yet."
+                    )
+                }
+
+                ChallengeRewardClaimResult
+                    .PointsSystemUnavailable -> {
+
+                    error(
+                        "Cornerstone Points is not connected yet."
+                    )
+                }
+
+                ChallengeRewardClaimResult
+                    .InvalidReward -> {
+
+                    error(
+                        "The challenge reward is invalid."
+                    )
+                }
+            }
+        }
+    }
+
+    private suspend fun claimPointsReward(
+        definition: ChallengeDefinition
+    ): ChallengeRewardClaimResult {
+        val points =
+            definition.reward.points
+                .coerceAtLeast(0)
+
+        if (points <= 0) {
+            return ChallengeRewardClaimResult
+                .InvalidReward
+        }
+
+        val repository =
+            pointsRepository
+                ?: return ChallengeRewardClaimResult
+                    .PointsSystemUnavailable
+
+        return when (
+            repository.awardChallengePoints(
+                challengeId =
+                    definition.id,
+                challengeTitle =
+                    definition.title,
+                points =
+                    points
+            )
+        ) {
+            is PointsRewardResult.Awarded -> {
+                dao.markRewardClaimed(
+                    challengeId =
+                        definition.id
+                )
+
+                ChallengeRewardClaimResult
+                    .PointsAwarded(
+                        points = points
+                    )
             }
 
-            dao.markRewardClaimed(
-                challengeId = challengeId
-            )
+            PointsRewardResult.AlreadyAwarded -> {
+                /*
+                 * The unique ledger key proves that
+                 * points were previously granted.
+                 */
+                dao.markRewardClaimed(
+                    challengeId =
+                        definition.id
+                )
+
+                ChallengeRewardClaimResult
+                    .PointsAlreadyAwarded(
+                        points = points
+                    )
+            }
+
+            PointsRewardResult.InvalidReward -> {
+                ChallengeRewardClaimResult
+                    .InvalidReward
+            }
         }
     }
 }

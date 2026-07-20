@@ -126,6 +126,42 @@ class ChallengeViewModel(
         }
     }
 
+    fun claimReward(
+        challengeId: String
+    ) {
+        if (isProcessing.value) {
+            return
+        }
+
+        viewModelScope.launch {
+            isProcessing.value = true
+            message.value = null
+
+            val result =
+                repository.claimReward(
+                    challengeId = challengeId
+                )
+
+            message.value =
+                result.fold(
+                    onSuccess = {
+                            claimResult ->
+
+                        claimResult
+                            .toUserMessage()
+                    },
+                    onFailure = {
+                            error ->
+
+                        error.message
+                            ?: "Unable to claim reward."
+                    }
+                )
+
+            isProcessing.value = false
+        }
+    }
+
     fun clearMessage() {
         message.value = null
     }
@@ -149,7 +185,9 @@ class ChallengeViewModel(
                     onSuccess = {
                         successMessage
                     },
-                    onFailure = { error ->
+                    onFailure = {
+                            error ->
+
                         error.message
                             ?: "Something went wrong."
                     }
@@ -179,6 +217,54 @@ class ChallengeViewModel(
             return ChallengeViewModel(
                 repository = repository
             ) as T
+        }
+    }
+}
+
+private fun ChallengeRewardClaimResult
+        .toUserMessage(): String {
+
+    return when (this) {
+        is ChallengeRewardClaimResult
+        .PointsAwarded -> {
+
+            "$points Cornerstone Points added."
+        }
+
+        is ChallengeRewardClaimResult
+        .PointsAlreadyAwarded -> {
+
+            "Reward already added. Your balance is safe."
+        }
+
+        is ChallengeRewardClaimResult
+        .ProPassPending -> {
+
+            "$proPassDays-day Pro Pass reward will be available after Pro Pass storage is connected."
+        }
+
+        ChallengeRewardClaimResult
+            .NoReward -> {
+
+            "Challenge reward claimed."
+        }
+
+        ChallengeRewardClaimResult
+            .AlreadyClaimed -> {
+
+            "This reward has already been claimed."
+        }
+
+        ChallengeRewardClaimResult
+            .PointsSystemUnavailable -> {
+
+            "Cornerstone Points is not connected yet."
+        }
+
+        ChallengeRewardClaimResult
+            .InvalidReward -> {
+
+            "This challenge reward is invalid."
         }
     }
 }

@@ -22,9 +22,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ProgressPhotoEntity::class,
         FightGearAnalyticsEventEntity::class,
         ChallengeProgressEntity::class,
-        TrainingRepetitionEntity::class
+        TrainingRepetitionEntity::class,
+        CornerstonePointsTransactionEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -44,6 +45,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun challengeProgressDao(): ChallengeProgressDao
 
     abstract fun trainingRepetitionDao(): TrainingRepetitionDao
+
+    abstract fun cornerstonePointsDao(): CornerstonePointsDao
 
     companion object {
 
@@ -308,6 +311,68 @@ abstract class AppDatabase : RoomDatabase() {
                 }
             }
 
+        private val MIGRATION_13_14 =
+            object : Migration(13, 14) {
+                override fun migrate(
+                    db: SupportSQLiteDatabase
+                ) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS `cornerstone_points_transactions` (
+                            `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            `amount` INTEGER NOT NULL,
+                            `transactionType` TEXT NOT NULL,
+                            `sourceType` TEXT NOT NULL,
+                            `sourceId` TEXT,
+                            `deduplicationKey` TEXT,
+                            `description` TEXT NOT NULL,
+                            `createdAtEpochMs` INTEGER NOT NULL
+                        )
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE INDEX IF NOT EXISTS
+                        `index_cornerstone_points_transactions_transactionType`
+                        ON `cornerstone_points_transactions` (`transactionType`)
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE INDEX IF NOT EXISTS
+                        `index_cornerstone_points_transactions_sourceType`
+                        ON `cornerstone_points_transactions` (`sourceType`)
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE INDEX IF NOT EXISTS
+                        `index_cornerstone_points_transactions_sourceId`
+                        ON `cornerstone_points_transactions` (`sourceId`)
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE INDEX IF NOT EXISTS
+                        `index_cornerstone_points_transactions_createdAtEpochMs`
+                        ON `cornerstone_points_transactions` (`createdAtEpochMs`)
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE UNIQUE INDEX IF NOT EXISTS
+                        `index_cornerstone_points_transactions_deduplicationKey`
+                        ON `cornerstone_points_transactions` (`deduplicationKey`)
+                        """.trimIndent()
+                    )
+                }
+            }
+
         fun get(
             context: Context
         ): AppDatabase {
@@ -324,7 +389,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_9_10,
                         MIGRATION_10_11,
                         MIGRATION_11_12,
-                        MIGRATION_12_13
+                        MIGRATION_12_13,
+                        MIGRATION_13_14
                     )
                     .fallbackToDestructiveMigration()
                     .build()
