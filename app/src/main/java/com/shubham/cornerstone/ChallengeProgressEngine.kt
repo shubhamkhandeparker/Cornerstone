@@ -4,6 +4,13 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 private const val KICK_MOVEMENT_TYPE = "KICK"
+private const val ELITE_MIN_SESSION_SECONDS = 60 * 60
+
+private val FOUNDATION_SESSION_TYPES =
+    setOf(
+        "ai",
+        "playlist"
+    )
 
 class ChallengeProgressEngine(
     private val challengeProgressDao:
@@ -21,32 +28,26 @@ class ChallengeProgressEngine(
             challengeProgressDao
                 .getActiveChallenges()
 
-        activeChallenges.forEach {
-                progressEntity ->
-
+        activeChallenges.forEach { progressEntity ->
             refreshChallenge(
-                progressEntity =
-                    progressEntity,
+                progressEntity = progressEntity,
                 today = today
             )
         }
     }
 
     private suspend fun refreshChallenge(
-        progressEntity:
-        ChallengeProgressEntity,
+        progressEntity: ChallengeProgressEntity,
         today: LocalDate
     ) {
         val definition =
             ChallengeCatalog.getChallenge(
                 challengeId =
-                    progressEntity
-                        .challengeId
+                    progressEntity.challengeId
             ) ?: return
 
         val startedAtEpochDay =
-            progressEntity
-                .startedAtEpochDay
+            progressEntity.startedAtEpochDay
                 ?: return
 
         val startDate =
@@ -82,54 +83,34 @@ class ChallengeProgressEngine(
         val sessions =
             trainingSessionRepository
                 .getSessionsBetweenDates(
-                    startDate =
-                        startDate,
-                    endDate =
-                        evaluationEndDate
+                    startDate = startDate,
+                    endDate = evaluationEndDate
                 )
 
         val sessionsByDate =
-            sessions.groupBy {
-                    session ->
-
+            sessions.groupBy { session ->
                 session.localDate
             }
 
-        /*
-         * Repetition records are only loaded for
-         * challenges that actually require them.
-         *
-         * Only VALID kick records count toward
-         * challenge completion. Suspicious and
-         * invalid records remain stored but do
-         * not increase progress.
-         */
         val validKickRepetitions =
             if (
-                definition
-                    .requiredRepetitionsPerDay >
+                definition.requiredRepetitionsPerDay >
                 0
             ) {
                 trainingRepetitionRepository
                     ?.getRepetitionsBetweenDates(
-                        startDate =
-                            startDate,
-                        endDate =
-                            evaluationEndDate
+                        startDate = startDate,
+                        endDate = evaluationEndDate
                     )
                     .orEmpty()
-                    .filter {
-                            repetition ->
-
+                    .filter { repetition ->
                         repetition.movementType ==
                                 KICK_MOVEMENT_TYPE &&
-                                repetition
-                                    .integrityStatus ==
+                                repetition.integrityStatus ==
                                 ChallengeIntegrityStatus
                                     .VALID
                                     .name &&
-                                repetition
-                                    .repetitionCount >
+                                repetition.repetitionCount >
                                 0
                     }
             } else {
@@ -137,9 +118,7 @@ class ChallengeProgressEngine(
             }
 
         val repetitionsByDate =
-            validKickRepetitions.groupBy {
-                    repetition ->
-
+            validKickRepetitions.groupBy { repetition ->
                 repetition.localDate
             }
 
@@ -149,13 +128,36 @@ class ChallengeProgressEngine(
                 evaluationEndDate
             ).toInt() + 1
 
+        val requiresSingleKickSession =
+            definition.id ==
+                    ChallengeCatalog
+                        .ONE_HUNDRED_KICKS_ID
+
+        val requiresFoundationSession =
+            definition.id ==
+                    ChallengeCatalog
+                        .FOUNDATION_14_ID
+
+        val requiresEliteSessions =
+            definition.id ==
+                    ChallengeCatalog
+                        .ELITE_75_ID
+
         var completedDays = 0
         var consecutiveCompletedDays = 0
         var missedRequiredPastDay = false
 
-        repeat(evaluatedDayCount) {
-                dayIndex ->
+        var bestSingleKickSessionRepetitions = 0
+        var validatedKickSessionCount = 0
+        var validatedKickActiveSeconds = 0
 
+        var validatedFoundationSessionCount = 0
+        var validatedFoundationActiveSeconds = 0
+
+        var validatedEliteSessionCount = 0
+        var validatedEliteActiveSeconds = 0
+
+        repeat(evaluatedDayCount) { dayIndex ->
             val date =
                 startDate.plusDays(
                     dayIndex.toLong()
@@ -174,29 +176,139 @@ class ChallengeProgressEngine(
                     dateString
                 ].orEmpty()
 
+            val foundationMinimumSeconds =
+                definition
+                    .requiredActiveMinutesPerDay
+                    .coerceAtLeast(0) *
+                        60
+
+            val foundationSessionsForDay =
+                if (requiresFoundationSession) {
+                    sessionsForDay.filter { session ->
+                        session.sessionType
+                            .trim()
+                            .lowercase() in
+                                FOUNDATION_SESSION_TYPES &&
+                                session.durationSeconds >=
+                                foundationMinimumSeconds
+                    }
+                } else {
+                    emptyList()
+                }
+
+            if (requiresFoundationSession) {
+                validatedFoundationSessionCount +=
+                    foundationSessionsForDay.size
+
+                validatedFoundationActiveSeconds +=
+                    foundationSessionsForDay.sumOf { session ->
+                        session.durationSeconds
+                            .coerceAtLeast(0)
+                    }
+            }
+
+            val eliteSessionsForDay =
+                if (requiresEliteSessions) {
+                    sessionsForDay.filter { session ->
+                        session.durationSeconds >=
+                                ELITE_MIN_SESSION_SECONDS
+                    }
+                } else {
+                    emptyList()
+                }
+
+            if (requiresEliteSessions) {
+                validatedEliteSessionCount +=
+                    eliteSessionsForDay.size
+
+                validatedEliteActiveSeconds +=
+                    eliteSessionsForDay.sumOf { session ->
+                        session.durationSeconds
+                            .coerceAtLeast(0)
+                    }
+            }
+
+            val sessionsUsedForValidation =
+                when {
+                    requiresFoundationSession -> {
+                        foundationSessionsForDay
+                    }
+
+                    requiresEliteSessions -> {
+                        eliteSessionsForDay
+                    }
+
+                    else -> {
+                        sessionsForDay
+                    }
+                }
+
             val dailySessionCount =
-                sessionsForDay.size
+                sessionsUsedForValidation.size
 
             val dailyDurationSeconds =
-                sessionsForDay.sumOf {
-                        session ->
-
+                sessionsUsedForValidation.sumOf { session ->
                     session.durationSeconds
                         .coerceAtLeast(0)
                 }
 
             val dailyRepetitionCount =
-                repetitionsForDay.sumOf {
-                        repetition ->
-
+                repetitionsForDay.sumOf { repetition ->
                     repetition.repetitionCount
                         .coerceAtLeast(0)
                 }
 
+            val validTrainingSessionIds =
+                sessionsForDay
+                    .map { session ->
+                        session.id
+                    }
+                    .filter { sessionId ->
+                        sessionId > 0L
+                    }
+                    .toSet()
+
+            val kickSessionAggregates =
+                buildKickSessionAggregates(
+                    repetitions =
+                        repetitionsForDay,
+                    validTrainingSessionIds =
+                        validTrainingSessionIds
+                )
+
+            val highestKickCountInOneSession =
+                kickSessionAggregates
+                    .maxOfOrNull { aggregate ->
+                        aggregate.repetitionCount
+                    }
+                    ?: 0
+
+            if (requiresSingleKickSession) {
+                bestSingleKickSessionRepetitions =
+                    maxOf(
+                        bestSingleKickSessionRepetitions,
+                        highestKickCountInOneSession
+                    )
+
+                validatedKickSessionCount +=
+                    kickSessionAggregates.size
+
+                validatedKickActiveSeconds +=
+                    kickSessionAggregates.sumOf { aggregate ->
+                        aggregate.activeSeconds
+                    }
+            }
+
             val sessionsRequirementMet =
-                dailySessionCount >=
-                        definition
-                            .requiredSessionsPerDay
+                if (requiresSingleKickSession) {
+                    kickSessionAggregates.size >=
+                            definition
+                                .requiredSessionsPerDay
+                } else {
+                    dailySessionCount >=
+                            definition
+                                .requiredSessionsPerDay
+                }
 
             val minutesRequirementMet =
                 dailyDurationSeconds >=
@@ -205,9 +317,15 @@ class ChallengeProgressEngine(
                         60
 
             val repetitionsRequirementMet =
-                dailyRepetitionCount >=
-                        definition
-                            .requiredRepetitionsPerDay
+                if (requiresSingleKickSession) {
+                    highestKickCountInOneSession >=
+                            definition
+                                .requiredRepetitionsPerDay
+                } else {
+                    dailyRepetitionCount >=
+                            definition
+                                .requiredRepetitionsPerDay
+                }
 
             val dayCompleted =
                 sessionsRequirementMet &&
@@ -217,49 +335,83 @@ class ChallengeProgressEngine(
             if (dayCompleted) {
                 completedDays += 1
 
-                if (
-                    !missedRequiredPastDay
-                ) {
-                    consecutiveCompletedDays +=
-                        1
+                if (!missedRequiredPastDay) {
+                    consecutiveCompletedDays += 1
                 }
             } else {
                 val isPastDay =
                     date.isBefore(today)
 
                 if (
-                    definition
-                        .requiresConsecutiveDays &&
+                    definition.requiresConsecutiveDays &&
                     isPastDay
                 ) {
-                    missedRequiredPastDay =
-                        true
+                    missedRequiredPastDay = true
                 }
             }
         }
 
         val totalValidatedSessions =
-            sessions.size
+            when {
+                requiresSingleKickSession -> {
+                    validatedKickSessionCount
+                }
+
+                requiresFoundationSession -> {
+                    validatedFoundationSessionCount
+                }
+
+                requiresEliteSessions -> {
+                    validatedEliteSessionCount
+                }
+
+                else -> {
+                    sessions.size
+                }
+            }
 
         val totalValidatedMinutes =
-            sessions.sumOf {
-                    session ->
+            when {
+                requiresSingleKickSession -> {
+                    validatedKickActiveSeconds / 60
+                }
 
-                session.durationSeconds
-                    .coerceAtLeast(0)
-            } / 60
+                requiresFoundationSession -> {
+                    validatedFoundationActiveSeconds / 60
+                }
+
+                requiresEliteSessions -> {
+                    validatedEliteActiveSeconds / 60
+                }
+
+                else -> {
+                    sessions.sumOf { session ->
+                        session.durationSeconds
+                            .coerceAtLeast(0)
+                    } / 60
+                }
+            }
 
         val totalValidatedRepetitions =
-            validKickRepetitions.sumOf {
-                    repetition ->
-
-                repetition.repetitionCount
-                    .coerceAtLeast(0)
+            if (requiresSingleKickSession) {
+                bestSingleKickSessionRepetitions
+            } else {
+                validKickRepetitions.sumOf { repetition ->
+                    repetition.repetitionCount
+                        .coerceAtLeast(0)
+                }
             }
+
+        val integrityStatus =
+            progressEntity
+                .integrityStatus
+                .toIntegrityStatus()
 
         val challengeCompleted =
             completedDays >=
-                    definition.durationDays
+                    definition.durationDays &&
+                    integrityStatus ==
+                    ChallengeIntegrityStatus.VALID
 
         val challengeExpired =
             today.isAfter(
@@ -268,24 +420,26 @@ class ChallengeProgressEngine(
 
         val newStatus =
             when {
+                integrityStatus ==
+                        ChallengeIntegrityStatus.INVALID -> {
+
+                    ChallengeStatus.FAILED
+                }
+
                 challengeCompleted -> {
-                    ChallengeStatus
-                        .COMPLETED
+                    ChallengeStatus.COMPLETED
                 }
 
                 missedRequiredPastDay -> {
-                    ChallengeStatus
-                        .FAILED
+                    ChallengeStatus.FAILED
                 }
 
                 challengeExpired -> {
-                    ChallengeStatus
-                        .FAILED
+                    ChallengeStatus.FAILED
                 }
 
                 else -> {
-                    ChallengeStatus
-                        .ACTIVE
+                    ChallengeStatus.ACTIVE
                 }
             }
 
@@ -304,21 +458,17 @@ class ChallengeProgressEngine(
         val updatedProgress =
             ChallengeProgress(
                 challengeId =
-                    progressEntity
-                        .challengeId,
+                    progressEntity.challengeId,
                 status =
                     newStatus,
                 integrityStatus =
-                    progressEntity
-                        .integrityStatus
-                        .toIntegrityStatus(),
+                    integrityStatus,
                 startedAtEpochDay =
                     startedAtEpochDay,
                 completedAtEpochDay =
                     if (
                         newStatus ==
-                        ChallengeStatus
-                            .COMPLETED
+                        ChallengeStatus.COMPLETED
                     ) {
                         today.toEpochDay()
                     } else {
@@ -327,11 +477,9 @@ class ChallengeProgressEngine(
                 currentDay =
                     currentDay,
                 completedDays =
-                    completedDays
-                        .coerceAtMost(
-                            definition
-                                .durationDays
-                        ),
+                    completedDays.coerceAtMost(
+                        definition.durationDays
+                    ),
                 currentStreakDays =
                     consecutiveCompletedDays,
                 totalValidatedSessions =
@@ -352,31 +500,89 @@ class ChallengeProgressEngine(
                     }
             )
 
-        challengeProgressDao
-            .saveProgress(
-                ChallengeProgressEntity
-                    .fromChallengeProgress(
-                        progress =
-                            updatedProgress,
-                        rewardClaimed =
-                            progressEntity
-                                .rewardClaimed,
-                        createdAtEpochMs =
-                            progressEntity
-                                .createdAtEpochMs
-                    )
-            )
+        challengeProgressDao.saveProgress(
+            ChallengeProgressEntity
+                .fromChallengeProgress(
+                    progress =
+                        updatedProgress,
+                    rewardClaimed =
+                        progressEntity.rewardClaimed,
+                    createdAtEpochMs =
+                        progressEntity.createdAtEpochMs
+                )
+        )
     }
+}
+
+private data class KickSessionAggregate(
+    val repetitionCount: Int,
+    val activeSeconds: Int
+)
+
+private fun buildKickSessionAggregates(
+    repetitions: List<TrainingRepetitionEntity>,
+    validTrainingSessionIds: Set<Long>
+): List<KickSessionAggregate> {
+    val linkedSessionAggregates =
+        repetitions
+            .filter { repetition ->
+                val sessionId =
+                    repetition.trainingSessionId
+
+                sessionId != null &&
+                        sessionId in
+                        validTrainingSessionIds
+            }
+            .groupBy { repetition ->
+                requireNotNull(
+                    repetition.trainingSessionId
+                )
+            }
+            .values
+            .map { sessionRepetitions ->
+                KickSessionAggregate(
+                    repetitionCount =
+                        sessionRepetitions.sumOf { repetition ->
+                            repetition.repetitionCount
+                                .coerceAtLeast(0)
+                        },
+                    activeSeconds =
+                        sessionRepetitions.sumOf { repetition ->
+                            repetition.activeSeconds
+                                .coerceAtLeast(0)
+                        }
+                )
+            }
+
+    val standaloneSessionAggregates =
+        repetitions
+            .filter { repetition ->
+                repetition.trainingSessionId ==
+                        null
+            }
+            .map { repetition ->
+                KickSessionAggregate(
+                    repetitionCount =
+                        repetition.repetitionCount
+                            .coerceAtLeast(0),
+                    activeSeconds =
+                        repetition.activeSeconds
+                            .coerceAtLeast(0)
+                )
+            }
+
+    return linkedSessionAggregates +
+            standaloneSessionAggregates
 }
 
 private fun String.toIntegrityStatus():
         ChallengeIntegrityStatus {
 
     return runCatching {
-        ChallengeIntegrityStatus
-            .valueOf(this)
+        ChallengeIntegrityStatus.valueOf(
+            this
+        )
     }.getOrDefault(
-        ChallengeIntegrityStatus
-            .VALID
+        ChallengeIntegrityStatus.VALID
     )
 }

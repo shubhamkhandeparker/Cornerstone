@@ -1,5 +1,5 @@
-import java.util.Properties
 import java.io.FileInputStream
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -20,25 +20,33 @@ android {
         applicationId = "com.shubham.cornerstone"
         minSdk = 24
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.6"
+
+        versionCode = 11
+        versionName = "1.9.5"
 
         testInstrumentationRunner =
             "androidx.test.runner.AndroidJUnitRunner"
 
-        // Read GROQ_API_KEY from local.properties.
-        // This keeps the key out of Git.
-        val localProperties = Properties()
-        val localFile = rootProject.file("local.properties")
+        val localProperties =
+            Properties()
+
+        val localFile =
+            rootProject.file(
+                "local.properties"
+            )
 
         if (localFile.exists()) {
             localProperties.load(
-                FileInputStream(localFile)
+                FileInputStream(
+                    localFile
+                )
             )
         }
 
         val groqKey =
-            localProperties.getProperty("GROQ_API_KEY") ?: ""
+            localProperties.getProperty(
+                "GROQ_API_KEY"
+            ) ?: ""
 
         buildConfigField(
             "String",
@@ -61,8 +69,11 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility =
+            JavaVersion.VERSION_11
+
+        targetCompatibility =
+            JavaVersion.VERSION_11
     }
 
     kotlinOptions {
@@ -76,59 +87,136 @@ android {
 }
 
 dependencies {
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
-
     implementation(
-        platform(libs.androidx.compose.bom)
+        libs.androidx.core.ktx
     )
 
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.ui.graphics)
-    implementation(libs.androidx.compose.ui.tooling.preview)
-    implementation(libs.androidx.compose.material3)
+    implementation(
+        libs.androidx.lifecycle.runtime.ktx
+    )
+
+    implementation(
+        libs.androidx.activity.compose
+    )
+
+    implementation(
+        platform(
+            libs.androidx.compose.bom
+        )
+    )
+
+    implementation(
+        libs.androidx.compose.ui
+    )
+
+    implementation(
+        libs.androidx.compose.ui.graphics
+    )
+
+    implementation(
+        libs.androidx.compose.ui.tooling.preview
+    )
+
+    implementation(
+        libs.androidx.compose.material3
+    )
 
     // Room — local database
-    implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.room.ktx)
-    ksp(libs.androidx.room.compiler)
+    implementation(
+        libs.androidx.room.runtime
+    )
 
-    // Google Play Billing — subscriptions
-    implementation(libs.billing.ktx)
+    implementation(
+        libs.androidx.room.ktx
+    )
+
+    ksp(
+        libs.androidx.room.compiler
+    )
+
+    // Google Play Billing 9.1.0
+    implementation(
+        libs.billing.ktx
+    )
 
     // ViewModel and navigation
     implementation(
         libs.androidx.lifecycle.viewmodel.compose
     )
-    implementation(libs.androidx.navigation.compose)
 
-    // DataStore — lightweight settings storage
-    implementation(libs.androidx.datastore.preferences)
+    implementation(
+        libs.androidx.navigation.compose
+    )
 
-    // Networking — Groq API and remote data
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.kotlinx.serialization)
-    implementation(libs.okhttp.logging)
-    implementation(libs.kotlinx.serialization.json)
+    // DataStore
+    implementation(
+        libs.androidx.datastore.preferences
+    )
 
-    // Coil — compatible with the project's Kotlin version
+    // Networking
+    implementation(
+        libs.retrofit
+    )
+
+    implementation(
+        libs.retrofit.kotlinx.serialization
+    )
+
+    implementation(
+        libs.okhttp.logging
+    )
+
+    implementation(
+        libs.kotlinx.serialization.json
+    )
+
+    // Coil
     implementation(
         "io.coil-kt.coil3:coil-compose:3.0.4"
     )
+
     implementation(
         "io.coil-kt.coil3:coil-network-okhttp:3.0.4"
     )
 
-    testImplementation(libs.junit)
+    // CameraX
+    val cameraxVersion =
+        "1.6.1"
 
-    androidTestImplementation(libs.androidx.junit)
+    implementation(
+        "androidx.camera:camera-core:$cameraxVersion"
+    )
+
+    implementation(
+        "androidx.camera:camera-camera2:$cameraxVersion"
+    )
+
+    implementation(
+        "androidx.camera:camera-lifecycle:$cameraxVersion"
+    )
+
+    implementation(
+        "androidx.camera:camera-view:$cameraxVersion"
+    )
+
+    testImplementation(
+        libs.junit
+    )
+
+    androidTestImplementation(
+        libs.androidx.junit
+    )
+
     androidTestImplementation(
         libs.androidx.espresso.core
     )
+
     androidTestImplementation(
-        platform(libs.androidx.compose.bom)
+        platform(
+            libs.androidx.compose.bom
+        )
     )
+
     androidTestImplementation(
         libs.androidx.compose.ui.test.junit4
     )
@@ -136,23 +224,8 @@ dependencies {
     debugImplementation(
         libs.androidx.compose.ui.tooling
     )
+
     debugImplementation(
         libs.androidx.compose.ui.test.manifest
-    )
-
-    // CameraX — progress photo capture
-    val cameraxVersion = "1.6.1"
-
-    implementation(
-        "androidx.camera:camera-core:$cameraxVersion"
-    )
-    implementation(
-        "androidx.camera:camera-camera2:$cameraxVersion"
-    )
-    implementation(
-        "androidx.camera:camera-lifecycle:$cameraxVersion"
-    )
-    implementation(
-        "androidx.camera:camera-view:$cameraxVersion"
     )
 }

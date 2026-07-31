@@ -65,9 +65,6 @@ data class CornerstonePointsTransactionEntity(
     /*
      * Prevents the same reward or redemption from
      * being recorded more than once.
-     *
-     * Example:
-     * challenge_reward:one_hundred_kicks
      */
     val deduplicationKey: String? = null,
 
@@ -159,8 +156,7 @@ data class CornerstonePointsTransactionEntity(
 
             return CornerstonePointsTransactionEntity(
                 amount =
-                    -pointsCost
-                        .coerceAtLeast(0),
+                    -pointsCost.coerceAtLeast(0),
                 transactionType =
                     CornerstonePointsTransactionType
                         .PRO_PASS_REDEMPTION

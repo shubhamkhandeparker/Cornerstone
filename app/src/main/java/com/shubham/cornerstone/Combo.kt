@@ -2,7 +2,8 @@ package com.shubham.cornerstone
 
 /**
  * One shadowboxing combo in a session.
- * `moves` is the punch sequence (e.g. "1 - 2 - 3").
+ *
+ * `moves` is the punch/defense sequence.
  * `cue` is the coaching tip shown underneath.
  * `phase` groups combos into Warmup / Work / Finish.
  */
@@ -15,49 +16,59 @@ data class Combo(
 
 /**
  * Hardcoded beginner boxing session.
- * Numbers = standard boxing notation:
- * 1 jab · 2 cross · 3 lead hook · 4 rear hook · 5 lead uppercut · 6 rear uppercut
  *
- * Later, Groq AI will generate this list based on sport + level + history.
+ * Boxing notation:
+ * 1 = Jab
+ * 2 = Cross
+ * 3 = Lead Hook
+ * 4 = Rear Hook
+ * 5 = Lead Uppercut
+ * 6 = Rear Uppercut
  */
 object SessionData {
 
     fun beginnerBoxing(): List<Combo> = listOf(
+
         Combo(
             number = 1,
             phase = "WARMUP",
             moves = "1 - 1",
-            cue = "Double jab. Stay light on your feet, find your range."
+            cue = "Double jab. Stay light on your feet and find your range."
         ),
+
         Combo(
             number = 2,
             phase = "WARMUP",
             moves = "1 - 2",
-            cue = "Jab, cross. Rotate your hips into the cross."
+            cue = "Jab, cross. Rotate your hips into the cross and return to guard."
         ),
+
         Combo(
             number = 3,
             phase = "WORK",
             moves = "1 - 2 - 3",
             cue = "Jab, cross, lead hook. Keep your guard up after the hook."
         ),
+
         Combo(
             number = 4,
             phase = "WORK",
-            moves = "1 - 2 - slip - 2",
-            cue = "Throw, slip the imaginary counter, fire back the cross."
+            moves = "1 - 2 - slip right - 2",
+            cue = "Jab, cross, slip to your RIGHT, then fire the cross."
         ),
+
         Combo(
             number = 5,
             phase = "WORK",
             moves = "1 - 6 - 3 - 2",
-            cue = "Jab, rear uppercut, hook, cross. Flow — don't muscle it."
+            cue = "Jab, rear uppercut, lead hook, cross. Flow — don't muscle it."
         ),
+
         Combo(
             number = 6,
             phase = "FINISH",
-            moves = "1 - 2 - roll - 2",
-            cue = "Last one. Roll under, come back with a sharp cross. Breathe."
+            moves = "1 - 2 - roll left - 2",
+            cue = "Jab, cross, roll to your LEFT, then come back with a sharp cross."
         )
     )
 }

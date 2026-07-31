@@ -82,19 +82,15 @@ class CornerstonePointsRepository(
             safeChallengeId.isBlank() ||
             safePoints <= 0
         ) {
-            return PointsRewardResult
-                .InvalidReward
+            return PointsRewardResult.InvalidReward
         }
 
         val transaction =
             CornerstonePointsTransactionEntity
                 .challengeReward(
-                    challengeId =
-                        safeChallengeId,
-                    challengeTitle =
-                        challengeTitle,
-                    points =
-                        safePoints
+                    challengeId = safeChallengeId,
+                    challengeTitle = challengeTitle,
+                    points = safePoints
                 )
 
         val insertedId =
@@ -107,8 +103,7 @@ class CornerstonePointsRepository(
                 points = safePoints
             )
         } else {
-            PointsRewardResult
-                .AlreadyAwarded
+            PointsRewardResult.AlreadyAwarded
         }
     }
 
@@ -204,8 +199,7 @@ class CornerstonePointsRepository(
             )
 
         return if (nowAlreadyRedeemed) {
-            PointsRedemptionResult
-                .AlreadyRedeemed
+            PointsRedemptionResult.AlreadyRedeemed
         } else {
             PointsRedemptionResult
                 .InsufficientBalance

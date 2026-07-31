@@ -20,8 +20,9 @@ data class ChallengeUiState(
 ) {
     val visibleChallenges: List<ChallengeWithProgress>
         get() {
-            val category = selectedCategory
-                ?: return challenges
+            val category =
+                selectedCategory
+                    ?: return challenges
 
             return challenges.filter { challenge ->
                 challenge.definition.category ==
@@ -30,30 +31,38 @@ data class ChallengeUiState(
         }
 
     val activeChallengeCount: Int
-        get() = challenges.count { challenge ->
-            challenge.isActive
-        }
+        get() =
+            challenges.count { challenge ->
+                challenge.isActive
+            }
 
     val completedChallengeCount: Int
-        get() = challenges.count { challenge ->
-            challenge.isCompleted
-        }
+        get() =
+            challenges.count { challenge ->
+                challenge.isCompleted
+            }
 }
 
 class ChallengeViewModel(
-    private val repository: ChallengeRepository
+    private val repository:
+    ChallengeRepository
 ) : ViewModel() {
 
     private val selectedCategory =
-        MutableStateFlow<ChallengeCategory?>(null)
+        MutableStateFlow<ChallengeCategory?>(
+            null
+        )
 
     private val isProcessing =
         MutableStateFlow(false)
 
     private val message =
-        MutableStateFlow<String?>(null)
+        MutableStateFlow<String?>(
+            null
+        )
 
-    val uiState: StateFlow<ChallengeUiState> =
+    val uiState:
+            StateFlow<ChallengeUiState> =
         combine(
             repository.observeChallenges(),
             selectedCategory,
@@ -66,17 +75,24 @@ class ChallengeViewModel(
                 currentMessage ->
 
             ChallengeUiState(
-                challenges = challenges,
-                selectedCategory = category,
-                isProcessing = processing,
-                message = currentMessage
+                challenges =
+                    challenges,
+                selectedCategory =
+                    category,
+                isProcessing =
+                    processing,
+                message =
+                    currentMessage
             )
         }.stateIn(
-            scope = viewModelScope,
+            scope =
+                viewModelScope,
             started =
-                SharingStarted.WhileSubscribed(
-                    stopTimeoutMillis = 5_000
-                ),
+                SharingStarted
+                    .WhileSubscribed(
+                        stopTimeoutMillis =
+                            5_000L
+                    ),
             initialValue =
                 ChallengeUiState()
         )
@@ -84,7 +100,8 @@ class ChallengeViewModel(
     fun selectCategory(
         category: ChallengeCategory?
     ) {
-        selectedCategory.value = category
+        selectedCategory.value =
+            category
     }
 
     fun startChallenge(
@@ -95,7 +112,8 @@ class ChallengeViewModel(
                 "Challenge started."
         ) {
             repository.startChallenge(
-                challengeId = challengeId
+                challengeId =
+                    challengeId
             )
         }
     }
@@ -108,7 +126,8 @@ class ChallengeViewModel(
                 "Challenge abandoned."
         ) {
             repository.abandonChallenge(
-                challengeId = challengeId
+                challengeId =
+                    challengeId
             )
         }
     }
@@ -121,7 +140,8 @@ class ChallengeViewModel(
                 "Challenge restarted."
         ) {
             repository.restartChallenge(
-                challengeId = challengeId
+                challengeId =
+                    challengeId
             )
         }
     }
@@ -134,12 +154,16 @@ class ChallengeViewModel(
         }
 
         viewModelScope.launch {
-            isProcessing.value = true
-            message.value = null
+            isProcessing.value =
+                true
+
+            message.value =
+                null
 
             val result =
                 repository.claimReward(
-                    challengeId = challengeId
+                    challengeId =
+                        challengeId
                 )
 
             message.value =
@@ -158,12 +182,14 @@ class ChallengeViewModel(
                     }
                 )
 
-            isProcessing.value = false
+            isProcessing.value =
+                false
         }
     }
 
     fun clearMessage() {
-        message.value = null
+        message.value =
+            null
     }
 
     private fun performAction(
@@ -175,10 +201,14 @@ class ChallengeViewModel(
         }
 
         viewModelScope.launch {
-            isProcessing.value = true
-            message.value = null
+            isProcessing.value =
+                true
 
-            val result = action()
+            message.value =
+                null
+
+            val result =
+                action()
 
             message.value =
                 result.fold(
@@ -193,7 +223,8 @@ class ChallengeViewModel(
                     }
                 )
 
-            isProcessing.value = false
+            isProcessing.value =
+                false
         }
     }
 
@@ -215,7 +246,8 @@ class ChallengeViewModel(
             }
 
             return ChallengeViewModel(
-                repository = repository
+                repository =
+                    repository
             ) as T
         }
     }
@@ -240,7 +272,11 @@ private fun ChallengeRewardClaimResult
         is ChallengeRewardClaimResult
         .ProPassPending -> {
 
-            "$proPassDays-day Pro Pass reward will be available after Pro Pass storage is connected."
+            if (isGranted) {
+                "$proPassDays-day Pro Pass activated."
+            } else {
+                "Unable to activate the $proPassDays-day Pro Pass because Pro Pass storage is unavailable."
+            }
         }
 
         ChallengeRewardClaimResult

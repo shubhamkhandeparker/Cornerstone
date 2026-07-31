@@ -38,8 +38,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.shubham.cornerstone.ui.theme.CornerstoneTheme
 import com.shubham.cornerstone.ui.theme.FightRed
 import com.shubham.cornerstone.ui.theme.InkBlack
-import kotlinx.coroutines.launch
 import java.time.LocalDate
+import kotlinx.coroutines.launch
 
 private const val FREE_REST_SECONDS = 15
 
@@ -51,13 +51,16 @@ private const val FIGHT_GEAR_CATALOG_URL =
 
 class MainActivity : ComponentActivity() {
 
-    override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onCreate(
+        savedInstanceState: Bundle?
+    ) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val database = AppDatabase.get(
-            applicationContext
-        )
+        val database =
+            AppDatabase.get(
+                applicationContext
+            )
 
         val userRepository =
             UserProfileRepository(
@@ -87,9 +90,27 @@ class MainActivity : ComponentActivity() {
                 database.trainingRepetitionDao()
             )
 
+        val trainingPathRepository =
+            TrainingPathRepository(
+                database.trainingPathDao()
+            )
+
         val cornerstonePointsRepository =
             CornerstonePointsRepository(
                 database.cornerstonePointsDao()
+            )
+
+        val earnedProPassRepository =
+            EarnedProPassRepository(
+                database = database
+            )
+
+        val proEntitlementRepository =
+            ProEntitlementRepository(
+                userRepository =
+                    userRepository,
+                earnedProPassRepository =
+                    earnedProPassRepository
             )
 
         val progressPhotoRepository =
@@ -123,7 +144,9 @@ class MainActivity : ComponentActivity() {
                     database
                         .challengeProgressDao(),
                 pointsRepository =
-                    cornerstonePointsRepository
+                    cornerstonePointsRepository,
+                earnedProPassRepository =
+                    earnedProPassRepository
             )
 
         val challengeProgressEngine =
@@ -158,6 +181,8 @@ class MainActivity : ComponentActivity() {
                             trainingSessionRepository,
                         trainingRepetitionRepository =
                             trainingRepetitionRepository,
+                        trainingPathRepository =
+                            trainingPathRepository,
                         progressPhotoRepository =
                             progressPhotoRepository,
                         fightGearRepository =
@@ -167,7 +192,9 @@ class MainActivity : ComponentActivity() {
                         challengeRepository =
                             challengeRepository,
                         challengeProgressEngine =
-                            challengeProgressEngine
+                            challengeProgressEngine,
+                        proEntitlementRepository =
+                            proEntitlementRepository
                     )
                 }
             }
@@ -179,6 +206,7 @@ private enum class Screen {
     HOME,
     DURATION,
     SESSION,
+    LESSON_COMPLETE,
     GLOSSARY,
     TECHNIQUES,
     TECHNIQUE_DETAIL,
@@ -200,6 +228,19 @@ private enum class PaywallDestination {
     DURATION
 }
 
+private data class TrainingLessonCompleteUiData(
+    val lessonTitle: String,
+    val chapterTitle: String,
+    val xpAwarded: Int,
+    val totalXp: Int,
+    val streakDays: Int,
+    val activeTrainingSeconds: Int,
+    val completedCombos: Int,
+    val chapterCompleted: Boolean,
+    val nextLessonId: String?,
+    val nextLessonTitle: String?
+)
+
 @Composable
 fun CornerstoneApp(
     userRepository:
@@ -212,6 +253,8 @@ fun CornerstoneApp(
     TrainingSessionRepository,
     trainingRepetitionRepository:
     TrainingRepetitionRepository,
+    trainingPathRepository:
+    TrainingPathRepository,
     progressPhotoRepository:
     ProgressPhotoRepository,
     fightGearRepository:
@@ -221,16 +264,36 @@ fun CornerstoneApp(
     challengeRepository:
     ChallengeRepository,
     challengeProgressEngine:
-    ChallengeProgressEngine
+    ChallengeProgressEngine,
+    proEntitlementRepository:
+    ProEntitlementRepository
 ) {
-    val context = LocalContext.current
+    val context =
+        LocalContext.current
 
-    val profile by userRepository.profile
+    val profile by
+    userRepository.profile
         .collectAsStateWithLifecycle(
             initialValue = null
         )
 
-    val weightEntries by weightRepository.entries
+    val entitlementFlow =
+        remember(
+            proEntitlementRepository
+        ) {
+            proEntitlementRepository
+                .observeEntitlement()
+        }
+
+    val proEntitlementState by
+    entitlementFlow
+        .collectAsStateWithLifecycle(
+            initialValue =
+                ProEntitlementState()
+        )
+
+    val weightEntries by
+    weightRepository.entries
         .collectAsStateWithLifecycle(
             initialValue = emptyList()
         )
@@ -256,7 +319,8 @@ fun CornerstoneApp(
     val challengeViewModel:
             ChallengeViewModel =
         viewModel(
-            key = "challenge_view_model",
+            key =
+                "challenge_view_model",
             factory =
                 ChallengeViewModel.Factory(
                     repository =
@@ -268,10 +332,34 @@ fun CornerstoneApp(
     challengeViewModel.uiState
         .collectAsStateWithLifecycle()
 
-    val currentProfile = profile
+    val trainingPathViewModel:
+            TrainingPathViewModel =
+        viewModel(
+            key =
+                "training_path_view_model",
+            factory =
+                TrainingPathViewModel.Factory(
+                    repository =
+                        trainingPathRepository
+                )
+        )
 
-    var screen by rememberSaveable {
-        mutableStateOf(Screen.HOME)
+    val trainingPathUiState by
+    trainingPathViewModel.uiState
+        .collectAsStateWithLifecycle()
+
+    val currentProfile =
+        profile
+
+    val effectiveIsPro =
+        proEntitlementState.isPro ||
+                currentProfile?.isPro == true
+
+    var screen by
+    rememberSaveable {
+        mutableStateOf(
+            Screen.HOME
+        )
     }
 
     var paywallDestination by
@@ -304,8 +392,25 @@ fun CornerstoneApp(
         mutableIntStateOf(0)
     }
 
-    var cutStatus by remember {
-        mutableStateOf<CutStatus?>(null)
+    var activeStructuredLessonId by
+    rememberSaveable {
+        mutableStateOf<String?>(
+            null
+        )
+    }
+
+    var lessonCompleteUiData by
+    remember {
+        mutableStateOf<TrainingLessonCompleteUiData?>(
+            null
+        )
+    }
+
+    var cutStatus by
+    remember {
+        mutableStateOf<CutStatus?>(
+            null
+        )
     }
 
     var playlistSessionCombos by
@@ -344,7 +449,8 @@ fun CornerstoneApp(
             mutableSetOf<String>()
         }
 
-    val scope = rememberCoroutineScope()
+    val scope =
+        rememberCoroutineScope()
 
     LaunchedEffect(
         fightGearRepository
@@ -367,6 +473,25 @@ fun CornerstoneApp(
     }
 
     LaunchedEffect(
+        currentProfile?.sport,
+        currentProfile?.onboardingComplete
+    ) {
+        val fighter =
+            currentProfile
+                ?: return@LaunchedEffect
+
+        if (
+            fighter.onboardingComplete
+        ) {
+            trainingPathViewModel
+                .loadSport(
+                    sport =
+                        fighter.sport
+                )
+        }
+    }
+
+    LaunchedEffect(
         challengeUiState.message
     ) {
         val currentMessage =
@@ -379,7 +504,8 @@ fun CornerstoneApp(
             Toast.LENGTH_SHORT
         ).show()
 
-        challengeViewModel.clearMessage()
+        challengeViewModel
+            .clearMessage()
     }
 
     LaunchedEffect(
@@ -388,7 +514,10 @@ fun CornerstoneApp(
         currentProfile?.targetWeightKg,
         currentProfile?.fightDateEpochDay
     ) {
-        if (screen == Screen.WEIGHT_CUT) {
+        if (
+            screen ==
+            Screen.WEIGHT_CUT
+        ) {
             cutStatus =
                 weightRepository
                     .computeStatus()
@@ -409,7 +538,9 @@ fun CornerstoneApp(
             )
         }
 
-        !currentProfile.onboardingComplete -> {
+        !currentProfile
+            .onboardingComplete -> {
+
             val onboardingVm:
                     OnboardingViewModel =
                 viewModel(
@@ -421,19 +552,27 @@ fun CornerstoneApp(
                 )
 
             OnboardingScreen(
-                viewModel = onboardingVm,
-                onFinished = { }
+                viewModel =
+                    onboardingVm,
+                onFinished = {}
             )
         }
 
         else -> {
+            val effectiveProfile =
+                currentProfile.copy(
+                    isPro =
+                        effectiveIsPro
+                )
+
             fun openWeightCut() {
-                if (!currentProfile.isPro) {
+                if (!effectiveIsPro) {
                     paywallDestination =
                         PaywallDestination
                             .WEIGHT_CUT
 
-                    screen = Screen.PAYWALL
+                    screen =
+                        Screen.PAYWALL
                 } else {
                     screen =
                         if (
@@ -452,15 +591,17 @@ fun CornerstoneApp(
             }
 
             fun openProgressCamera() {
-                if (!currentProfile.isPro) {
+                if (!effectiveIsPro) {
                     paywallDestination =
                         PaywallDestination
                             .PROGRESS_CAMERA
 
-                    screen = Screen.PAYWALL
+                    screen =
+                        Screen.PAYWALL
                 } else {
                     screen =
-                        Screen.PROGRESS_CAMERA
+                        Screen
+                            .PROGRESS_CAMERA
                 }
             }
 
@@ -469,12 +610,14 @@ fun CornerstoneApp(
                     PaywallDestination
                         .DURATION
 
-                screen = Screen.PAYWALL
+                screen =
+                    Screen.PAYWALL
             }
 
             fun finishSessionAndGoHome(
                 sessionType: String,
-                result: SessionCompletionResult
+                result:
+                SessionCompletionResult
             ) {
                 val completedCombos =
                     result.completedCombos
@@ -482,7 +625,9 @@ fun CornerstoneApp(
                             minimumValue = 0,
                             maximumValue =
                                 result.totalCombos
-                                    .coerceAtLeast(0)
+                                    .coerceAtLeast(
+                                        0
+                                    )
                         )
 
                 val activeTrainingSeconds =
@@ -494,8 +639,17 @@ fun CornerstoneApp(
                             completedCombos > 0 &&
                             activeTrainingSeconds > 0
 
-                playlistSessionCombos = null
-                screen = Screen.HOME
+                playlistSessionCombos =
+                    null
+
+                activeStructuredLessonId =
+                    null
+
+                lessonCompleteUiData =
+                    null
+
+                screen =
+                    Screen.HOME
 
                 if (!shouldSaveSession) {
                     Toast.makeText(
@@ -532,7 +686,8 @@ fun CornerstoneApp(
             }
 
             fun finishAiSessionAndGoHome(
-                result: SessionCompletionResult
+                result:
+                SessionCompletionResult
             ) {
                 aiSessionOffset +=
                     result.totalCombos
@@ -545,21 +700,305 @@ fun CornerstoneApp(
             }
 
             fun finishPlaylistSessionAndGoHome(
-                result: SessionCompletionResult
+                result:
+                SessionCompletionResult
             ) {
                 finishSessionAndGoHome(
-                    sessionType = "playlist",
-                    result = result
+                    sessionType =
+                        "playlist",
+                    result =
+                        result
                 )
             }
 
+            fun finishStructuredLesson(
+                result:
+                SessionCompletionResult
+            ) {
+                val lessonId =
+                    activeStructuredLessonId
+
+                val lesson =
+                    lessonId?.let {
+                            id ->
+
+                        TrainingCurriculum
+                            .getLesson(
+                                lessonId = id
+                            )
+                    }
+
+                val completedCombos =
+                    result.completedCombos
+                        .coerceIn(
+                            minimumValue = 0,
+                            maximumValue =
+                                result.totalCombos
+                                    .coerceAtLeast(0)
+                        )
+
+                val activeTrainingSeconds =
+                    result.activeTrainingSeconds
+                        .coerceAtLeast(0)
+
+                val skippedCombos =
+                    result.skippedCombos
+                        .coerceAtLeast(0)
+
+                val shouldSaveSession =
+                    lesson != null &&
+                            result.genuinelyFinished &&
+                            (
+                                    completedCombos > 0 ||
+                                            skippedCombos > 0
+                                    ) &&
+                            activeTrainingSeconds > 0
+
+                playlistSessionCombos =
+                    null
+
+                activeStructuredLessonId =
+                    null
+
+                lessonCompleteUiData =
+                    null
+
+                screen =
+                    Screen.HOME
+
+                if (
+                    lesson == null
+                ) {
+                    Toast.makeText(
+                        context,
+                        "Lesson could not be found.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    return
+                }
+
+                if (!shouldSaveSession) {
+                    Toast.makeText(
+                        context,
+                        "Lesson was not saved because the training was not completed.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    return
+                }
+
+                scope.launch {
+                    val trainingSessionId =
+                        trainingSessionRepository
+                            .logFinishedSession(
+                                sessionType =
+                                    "fight_path",
+                                sport =
+                                    lesson.sport,
+                                comboCount =
+                                    completedCombos,
+                                secondsPerCombo =
+                                    TrainingPathSessionFactory
+                                        .SECONDS_PER_COMBO,
+                                activeTrainingSeconds =
+                                    activeTrainingSeconds
+                            )
+
+                    userRepository
+                        .incrementSessionsCompleted()
+
+                    challengeProgressEngine
+                        .refreshActiveChallenges()
+
+                    val completionResult =
+                        trainingPathViewModel
+                            .completeCurrentLesson(
+                                trainingSessionId =
+                                    trainingSessionId,
+                                activeTrainingSeconds =
+                                    activeTrainingSeconds,
+                                completedCombos =
+                                    completedCombos,
+                                skippedCombos =
+                                    skippedCombos
+                            )
+
+                    when (
+                        completionResult
+                    ) {
+                        is StructuredLessonCompletionResult
+                        .Completed -> {
+
+                            val nextLesson =
+                                completionResult
+                                    .nextLesson
+
+                            val chapter =
+                                TrainingCurriculum
+                                    .getChapter(
+                                        chapterId =
+                                            completionResult
+                                                .lesson
+                                                .chapterId
+                                    )
+
+                            lessonCompleteUiData =
+                                TrainingLessonCompleteUiData(
+                                    lessonTitle =
+                                        completionResult
+                                            .lesson
+                                            .title,
+                                    chapterTitle =
+                                        chapter
+                                            ?.title
+                                            ?: "Fight Path",
+                                    xpAwarded =
+                                        completionResult
+                                            .xpAwarded,
+                                    totalXp =
+                                        completionResult
+                                            .totalXp,
+                                    streakDays =
+                                        completionResult
+                                            .currentStreakDays,
+                                    activeTrainingSeconds =
+                                        activeTrainingSeconds,
+                                    completedCombos =
+                                        completedCombos,
+                                    chapterCompleted =
+                                        completionResult
+                                            .chapterCompleted,
+                                    nextLessonId =
+                                        nextLesson
+                                            ?.id,
+                                    nextLessonTitle =
+                                        nextLesson
+                                            ?.title
+                                )
+
+                            screen =
+                                Screen
+                                    .LESSON_COMPLETE
+                        }
+
+                        is StructuredLessonCompletionResult
+                        .AlreadyCompleted -> {
+
+                            Toast.makeText(
+                                context,
+                                "Lesson already completed.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+
+                            screen =
+                                Screen.HOME
+                        }
+
+                        is StructuredLessonCompletionResult
+                        .InvalidSession -> {
+
+                            Toast.makeText(
+                                context,
+                                completionResult
+                                    .reason,
+                                Toast.LENGTH_LONG
+                            ).show()
+
+                            screen =
+                                Screen.HOME
+                        }
+
+                        StructuredLessonCompletionResult
+                            .LessonNotFound -> {
+
+                            Toast.makeText(
+                                context,
+                                "Lesson could not be found.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+
+                            screen =
+                                Screen.HOME
+                        }
+                    }
+                }
+            }
+
             fun exitSessionAndGoHome() {
-                playlistSessionCombos = null
-                screen = Screen.HOME
+                playlistSessionCombos =
+                    null
+
+                activeStructuredLessonId =
+                    null
+
+                lessonCompleteUiData =
+                    null
+
+                screen =
+                    Screen.HOME
+            }
+
+            fun startStructuredLesson(
+                lessonId: String? = null
+            ) {
+                val lesson =
+                    if (
+                        lessonId != null
+                    ) {
+                        TrainingCurriculum
+                            .getLesson(
+                                lessonId =
+                                    lessonId
+                            )
+                    } else {
+                        trainingPathUiState
+                            .currentLesson
+                    }
+
+                if (
+                    lesson == null
+                ) {
+                    Toast.makeText(
+                        context,
+                        "Your Fight Path is still loading.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    return
+                }
+
+                val plan =
+                    TrainingPathSessionFactory
+                        .create(
+                            lesson = lesson
+                        )
+
+                lessonCompleteUiData =
+                    null
+
+                activeStructuredLessonId =
+                    lesson.id
+
+                playlistSessionCombos =
+                    null
+
+                secondsPerCombo =
+                    plan.secondsPerCombo
+
+                restSeconds =
+                    plan.restSeconds
+
+                combosPerSession =
+                    plan.combos.size
+
+                screen =
+                    Screen.SESSION
             }
 
             fun saveKickChallengeResult(
-                result: KickChallengeSessionResult
+                result:
+                KickChallengeSessionResult
             ) {
                 val repetitions =
                     result.repetitionCount
@@ -575,7 +1014,8 @@ fun CornerstoneApp(
                     activeSeconds <= 0
                 ) {
                     screen =
-                        Screen.CHALLENGE_DETAIL
+                        Screen
+                            .CHALLENGE_DETAIL
 
                     Toast.makeText(
                         context,
@@ -588,7 +1028,9 @@ fun CornerstoneApp(
 
                 scope.launch {
                     val sessionType =
-                        when (result.mode) {
+                        when (
+                            result.mode
+                        ) {
                             KickCountingMode
                                 .GUIDED_SOLO -> {
 
@@ -638,7 +1080,8 @@ fun CornerstoneApp(
                         .refreshActiveChallenges()
 
                     screen =
-                        Screen.CHALLENGE_DETAIL
+                        Screen
+                            .CHALLENGE_DETAIL
 
                     Toast.makeText(
                         context,
@@ -647,7 +1090,7 @@ fun CornerstoneApp(
                         ) {
                             "Kick target completed."
                         } else {
-                            "$repetitions kicks saved."
+                            "$repetitions kicks saved. Complete 100 in one session."
                         },
                         Toast.LENGTH_SHORT
                     ).show()
@@ -658,19 +1101,49 @@ fun CornerstoneApp(
                 Screen.HOME -> {
                     HomeScreen(
                         profile =
-                            currentProfile,
+                            effectiveProfile,
                         todaySessionCount =
                             todaySessionCount,
                         todayDurationSeconds =
                             todayDurationSeconds,
                         onStartSession = {
+                            activeStructuredLessonId =
+                                null
+
                             playlistSessionCombos =
+                                null
+
+                            lessonCompleteUiData =
+                                null
+
+                            screen =
+                                Screen.DURATION
+                        },
+                        trainingPathState =
+                            trainingPathUiState,
+                        onContinueFightPath = {
+                            startStructuredLesson()
+                        },
+                        onOpenFreeTraining = {
+                            activeStructuredLessonId =
+                                null
+
+                            playlistSessionCombos =
+                                null
+
+                            lessonCompleteUiData =
                                 null
 
                             screen =
                                 Screen.DURATION
                         },
                         onOpenPlaylists = {
+                            activeStructuredLessonId =
+                                null
+
+                            lessonCompleteUiData =
+                                null
+
                             screen =
                                 Screen.PLAYLISTS
                         },
@@ -732,7 +1205,8 @@ fun CornerstoneApp(
                                     .CHALLENGE_DETAIL
                         },
                         onExit = {
-                            screen = Screen.HOME
+                            screen =
+                                Screen.HOME
                         }
                     )
                 }
@@ -748,7 +1222,9 @@ fun CornerstoneApp(
                                         selectedChallengeId
                             }
 
-                    if (challenge == null) {
+                    if (
+                        challenge == null
+                    ) {
                         ChallengeLoadingScreen()
                     } else {
                         ChallengeDetailScreen(
@@ -811,7 +1287,9 @@ fun CornerstoneApp(
                     }
                 }
 
-                Screen.KICK_CHALLENGE_SESSION -> {
+                Screen
+                    .KICK_CHALLENGE_SESSION -> {
+
                     val challenge =
                         challengeUiState
                             .challenges
@@ -850,21 +1328,9 @@ fun CornerstoneApp(
                                 .requiredRepetitionsPerDay
                                 .coerceAtLeast(1)
 
-                        val alreadyValidated =
-                            challenge.progress
-                                ?.totalValidatedRepetitions
-                                ?.coerceAtLeast(0)
-                                ?: 0
-
-                        val remainingRepetitions =
-                            (
-                                    requiredRepetitions -
-                                            alreadyValidated
-                                    ).coerceAtLeast(1)
-
                         KickChallengeSessionScreen(
                             targetRepetitions =
-                                remainingRepetitions,
+                                requiredRepetitions,
                             onSaveResult = {
                                     result ->
 
@@ -881,7 +1347,9 @@ fun CornerstoneApp(
                     }
                 }
 
-                Screen.FIGHT_GEAR_DEALS -> {
+                Screen
+                    .FIGHT_GEAR_DEALS -> {
+
                     FightGearDealsScreen(
                         uiState =
                             fightGearUiState,
@@ -982,7 +1450,8 @@ fun CornerstoneApp(
                             }
                         },
                         onExit = {
-                            screen = Screen.HOME
+                            screen =
+                                Screen.HOME
                         },
                         onOpenAnalytics = {
                             screen =
@@ -992,7 +1461,9 @@ fun CornerstoneApp(
                     )
                 }
 
-                Screen.FIGHT_GEAR_ANALYTICS -> {
+                Screen
+                    .FIGHT_GEAR_ANALYTICS -> {
+
                     FightGearAnalyticsScreen(
                         repository =
                             fightGearAnalyticsRepository,
@@ -1024,7 +1495,8 @@ fun CornerstoneApp(
                                     .TECHNIQUE_DETAIL
                         },
                         onExit = {
-                            screen = Screen.HOME
+                            screen =
+                                Screen.HOME
                         }
                     )
                 }
@@ -1045,10 +1517,17 @@ fun CornerstoneApp(
                         repository =
                             comboLibraryRepository,
                         onBack = {
-                            screen = Screen.HOME
+                            screen =
+                                Screen.HOME
                         },
                         onRunPlaylist = {
                                 playlistCombos ->
+
+                            activeStructuredLessonId =
+                                null
+
+                            lessonCompleteUiData =
+                                null
 
                             playlistSessionCombos =
                                 playlistCombos
@@ -1057,17 +1536,17 @@ fun CornerstoneApp(
                             if (
                                 secondsPerCombo <= 0
                             ) {
-                                secondsPerCombo = 30
+                                secondsPerCombo =
+                                    30
                             }
 
-                            if (
-                                !currentProfile.isPro
-                            ) {
+                            if (!effectiveIsPro) {
                                 restSeconds =
                                     FREE_REST_SECONDS
                             }
 
-                            screen = Screen.SESSION
+                            screen =
+                                Screen.SESSION
                         }
                     )
                 }
@@ -1078,7 +1557,14 @@ fun CornerstoneApp(
                                 seconds,
                                 comboCount ->
 
-                            secondsPerCombo = seconds
+                            activeStructuredLessonId =
+                                null
+
+                            lessonCompleteUiData =
+                                null
+
+                            secondsPerCombo =
+                                seconds
 
                             combosPerSession =
                                 comboCount
@@ -1089,16 +1575,24 @@ fun CornerstoneApp(
                             playlistSessionCombos =
                                 null
 
-                            screen = Screen.SESSION
+                            screen =
+                                Screen.SESSION
                         },
                         onExit = {
+                            activeStructuredLessonId =
+                                null
+
                             playlistSessionCombos =
                                 null
 
-                            screen = Screen.HOME
+                            lessonCompleteUiData =
+                                null
+
+                            screen =
+                                Screen.HOME
                         },
                         isPro =
-                            currentProfile.isPro,
+                            effectiveIsPro,
                         onUnlockPro = {
                             openRestPaywall()
                         },
@@ -1107,16 +1601,20 @@ fun CornerstoneApp(
                                 comboCount,
                                 selectedRestSeconds ->
 
-                            secondsPerCombo = seconds
+                            activeStructuredLessonId =
+                                null
+
+                            lessonCompleteUiData =
+                                null
+
+                            secondsPerCombo =
+                                seconds
 
                             combosPerSession =
                                 comboCount
 
                             restSeconds =
-                                if (
-                                    currentProfile
-                                        .isPro
-                                ) {
+                                if (effectiveIsPro) {
                                     selectedRestSeconds
                                         .coerceAtLeast(
                                             1
@@ -1128,7 +1626,8 @@ fun CornerstoneApp(
                             playlistSessionCombos =
                                 null
 
-                            screen = Screen.SESSION
+                            screen =
+                                Screen.SESSION
                         }
                     )
                 }
@@ -1137,120 +1636,237 @@ fun CornerstoneApp(
                     val currentPlaylistSessionCombos =
                         playlistSessionCombos
 
-                    val effectiveRestSeconds =
-                        if (
-                            currentProfile.isPro
-                        ) {
-                            restSeconds
-                                .coerceAtLeast(1)
-                        } else {
-                            FREE_REST_SECONDS
+                    val structuredLesson =
+                        activeStructuredLessonId
+                            ?.let {
+                                    lessonId ->
+
+                                TrainingCurriculum
+                                    .getLesson(
+                                        lessonId =
+                                            lessonId
+                                    )
+                            }
+
+                    when {
+                        structuredLesson != null -> {
+                            val plan =
+                                TrainingPathSessionFactory
+                                    .create(
+                                        lesson =
+                                            structuredLesson
+                                    )
+
+                            SessionScreen(
+                                combos =
+                                    plan.combos,
+                                secondsPerCombo =
+                                    plan.secondsPerCombo,
+                                restSeconds =
+                                    plan.restSeconds,
+                                onFinishSession = {},
+                                onExit = {
+                                    exitSessionAndGoHome()
+                                },
+                                onSessionResult = {
+                                        result ->
+
+                                    finishStructuredLesson(
+                                        result =
+                                            result
+                                    )
+                                }
+                            )
                         }
+
+                        currentPlaylistSessionCombos !=
+                                null -> {
+
+                            val effectiveRestSeconds =
+                                if (effectiveIsPro) {
+                                    restSeconds
+                                        .coerceAtLeast(1)
+                                } else {
+                                    FREE_REST_SECONDS
+                                }
+
+                            SessionScreen(
+                                combos =
+                                    currentPlaylistSessionCombos,
+                                secondsPerCombo =
+                                    secondsPerCombo,
+                                restSeconds =
+                                    effectiveRestSeconds,
+                                onFinishSession = {},
+                                onExit = {
+                                    exitSessionAndGoHome()
+                                },
+                                onSessionResult = {
+                                        result ->
+
+                                    finishPlaylistSessionAndGoHome(
+                                        result = result
+                                    )
+                                }
+                            )
+                        }
+
+                        else -> {
+                            val effectiveRestSeconds =
+                                if (effectiveIsPro) {
+                                    restSeconds
+                                        .coerceAtLeast(1)
+                                } else {
+                                    FREE_REST_SECONDS
+                                }
+
+                            val sessionVm:
+                                    SessionViewModel =
+                                viewModel(
+                                    key = "session"
+                                )
+
+                            val state by
+                            sessionVm.state
+                                .collectAsStateWithLifecycle()
+
+                            LaunchedEffect(
+                                currentProfile.sport,
+                                currentProfile.level,
+                                currentProfile.dominance,
+                                currentProfile.stance,
+                                combosPerSession,
+                                aiSessionOffset
+                            ) {
+                                sessionVm.load(
+                                    sport =
+                                        currentProfile
+                                            .sport,
+                                    level =
+                                        currentProfile
+                                            .level,
+                                    dominance =
+                                        currentProfile
+                                            .dominance,
+                                    stance =
+                                        currentProfile
+                                            .stance,
+                                    count =
+                                        combosPerSession,
+                                    offset =
+                                        aiSessionOffset
+                                )
+                            }
+
+                            when (
+                                val sessionState =
+                                    state
+                            ) {
+                                is SessionViewModel
+                                .State.Loading -> {
+
+                                    GeneratingScreen()
+                                }
+
+                                is SessionViewModel
+                                .State.Ready -> {
+
+                                    SessionScreen(
+                                        combos =
+                                            sessionState
+                                                .combos,
+                                        secondsPerCombo =
+                                            secondsPerCombo,
+                                        restSeconds =
+                                            effectiveRestSeconds,
+                                        onFinishSession = {},
+                                        onExit = {
+                                            exitSessionAndGoHome()
+                                        },
+                                        onSessionResult = {
+                                                result ->
+
+                                            finishAiSessionAndGoHome(
+                                                result =
+                                                    result
+                                            )
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Screen.LESSON_COMPLETE -> {
+                    val summary =
+                        lessonCompleteUiData
 
                     if (
-                        currentPlaylistSessionCombos !=
-                        null
+                        summary == null
                     ) {
-                        SessionScreen(
-                            combos =
-                                currentPlaylistSessionCombos,
-                            secondsPerCombo =
-                                secondsPerCombo,
-                            restSeconds =
-                                effectiveRestSeconds,
-                            onFinishSession = { },
-                            onExit = {
-                                exitSessionAndGoHome()
-                            },
-                            onSessionResult = {
-                                    result ->
+                        LaunchedEffect(Unit) {
+                            screen =
+                                Screen.HOME
+                        }
 
-                                finishPlaylistSessionAndGoHome(
-                                    result = result
-                                )
+                        GeneratingScreen()
+                    } else {
+                        TrainingLessonCompleteScreen(
+                            lessonTitle =
+                                summary.lessonTitle,
+                            chapterTitle =
+                                summary.chapterTitle,
+                            xpAwarded =
+                                summary.xpAwarded,
+                            totalXp =
+                                summary.totalXp,
+                            streakDays =
+                                summary.streakDays,
+                            activeTrainingSeconds =
+                                summary.activeTrainingSeconds,
+                            completedCombos =
+                                summary.completedCombos,
+                            chapterCompleted =
+                                summary.chapterCompleted,
+                            nextLessonTitle =
+                                summary.nextLessonTitle,
+                            onContinue = {
+                                val nextId =
+                                    summary
+                                        .nextLessonId
+
+                                if (
+                                    nextId != null
+                                ) {
+                                    startStructuredLesson(
+                                        lessonId =
+                                            nextId
+                                    )
+                                } else {
+                                    lessonCompleteUiData =
+                                        null
+
+                                    screen =
+                                        Screen.HOME
+                                }
+                            },
+                            onHome = {
+                                lessonCompleteUiData =
+                                    null
+
+                                screen =
+                                    Screen.HOME
                             }
                         )
-                    } else {
-                        val sessionVm:
-                                SessionViewModel =
-                            viewModel(
-                                key = "session"
-                            )
-
-                        val state by
-                        sessionVm.state
-                            .collectAsStateWithLifecycle()
-
-                        LaunchedEffect(
-                            currentProfile.sport,
-                            currentProfile.level,
-                            currentProfile.dominance,
-                            currentProfile.stance,
-                            combosPerSession,
-                            aiSessionOffset
-                        ) {
-                            sessionVm.load(
-                                sport =
-                                    currentProfile
-                                        .sport,
-                                level =
-                                    currentProfile
-                                        .level,
-                                dominance =
-                                    currentProfile
-                                        .dominance,
-                                stance =
-                                    currentProfile
-                                        .stance,
-                                count =
-                                    combosPerSession,
-                                offset =
-                                    aiSessionOffset
-                            )
-                        }
-
-                        when (
-                            val sessionState =
-                                state
-                        ) {
-                            is SessionViewModel
-                            .State.Loading -> {
-
-                                GeneratingScreen()
-                            }
-
-                            is SessionViewModel
-                            .State.Ready -> {
-
-                                SessionScreen(
-                                    combos =
-                                        sessionState
-                                            .combos,
-                                    secondsPerCombo =
-                                        secondsPerCombo,
-                                    restSeconds =
-                                        effectiveRestSeconds,
-                                    onFinishSession = { },
-                                    onExit = {
-                                        exitSessionAndGoHome()
-                                    },
-                                    onSessionResult = {
-                                            result ->
-
-                                        finishAiSessionAndGoHome(
-                                            result = result
-                                        )
-                                    }
-                                )
-                            }
-                        }
                     }
                 }
 
                 Screen.GLOSSARY -> {
                     GlossaryScreen(
                         onExit = {
-                            screen = Screen.HOME
+                            screen =
+                                Screen.HOME
                         }
                     )
                 }
@@ -1355,14 +1971,16 @@ fun CornerstoneApp(
                             }
                         },
                         onExit = {
-                            screen = Screen.HOME
+                            screen =
+                                Screen.HOME
                         }
                     )
                 }
 
                 Screen.WEIGHT_CUT -> {
                     WeightCutScreen(
-                        status = cutStatus,
+                        status =
+                            cutStatus,
                         entries =
                             weightEntries,
                         useKg =
@@ -1384,7 +2002,8 @@ fun CornerstoneApp(
                             }
                         },
                         onExit = {
-                            screen = Screen.HOME
+                            screen =
+                                Screen.HOME
                         }
                     )
                 }
@@ -1394,7 +2013,8 @@ fun CornerstoneApp(
                         repository =
                             progressPhotoRepository,
                         onExit = {
-                            screen = Screen.HOME
+                            screen =
+                                Screen.HOME
                         }
                     )
                 }
@@ -1406,21 +2026,27 @@ fun CornerstoneApp(
 @Composable
 private fun ChallengeLoadingScreen() {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF161518),
-                        InkBlack
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors =
+                            listOf(
+                                Color(
+                                    0xFF161518
+                                ),
+                                InkBlack
+                            )
                     )
-                )
-            ),
-        contentAlignment = Alignment.Center
+                ),
+        contentAlignment =
+            Alignment.Center
     ) {
         Column(
             horizontalAlignment =
-                Alignment.CenterHorizontally
+                Alignment
+                    .CenterHorizontally
         ) {
             CircularProgressIndicator(
                 color = FightRed
@@ -1428,7 +2054,9 @@ private fun ChallengeLoadingScreen() {
 
             Spacer(
                 modifier =
-                    Modifier.height(18.dp)
+                    Modifier.height(
+                        18.dp
+                    )
             )
 
             Text(
@@ -1449,21 +2077,27 @@ private fun ChallengeLoadingScreen() {
 @Composable
 private fun GeneratingScreen() {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF161518),
-                        InkBlack
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors =
+                            listOf(
+                                Color(
+                                    0xFF161518
+                                ),
+                                InkBlack
+                            )
                     )
-                )
-            ),
-        contentAlignment = Alignment.Center
+                ),
+        contentAlignment =
+            Alignment.Center
     ) {
         Column(
             horizontalAlignment =
-                Alignment.CenterHorizontally,
+                Alignment
+                    .CenterHorizontally,
             verticalArrangement =
                 Arrangement.Center
         ) {
@@ -1473,7 +2107,9 @@ private fun GeneratingScreen() {
 
             Spacer(
                 modifier =
-                    Modifier.height(24.dp)
+                    Modifier.height(
+                        24.dp
+                    )
             )
 
             Text(
@@ -1490,7 +2126,9 @@ private fun GeneratingScreen() {
 
             Spacer(
                 modifier =
-                    Modifier.height(6.dp)
+                    Modifier.height(
+                        6.dp
+                    )
             )
 
             Text(

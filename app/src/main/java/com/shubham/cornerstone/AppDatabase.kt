@@ -23,9 +23,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         FightGearAnalyticsEventEntity::class,
         ChallengeProgressEntity::class,
         TrainingRepetitionEntity::class,
-        CornerstonePointsTransactionEntity::class
+        CornerstonePointsTransactionEntity::class,
+        EarnedProPassEntity::class,
+        TrainingPathProgressEntity::class,
+        TrainingLessonCompletionEntity::class
     ],
-    version = 14,
+    version = 16,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -47,6 +50,10 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun trainingRepetitionDao(): TrainingRepetitionDao
 
     abstract fun cornerstonePointsDao(): CornerstonePointsDao
+
+    abstract fun earnedProPassDao(): EarnedProPassDao
+
+    abstract fun trainingPathDao(): TrainingPathDao
 
     companion object {
 
@@ -373,6 +380,150 @@ abstract class AppDatabase : RoomDatabase() {
                 }
             }
 
+        private val MIGRATION_14_15 =
+            object : Migration(14, 15) {
+                override fun migrate(
+                    db: SupportSQLiteDatabase
+                ) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS `earned_pro_passes` (
+                            `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            `sourceType` TEXT NOT NULL,
+                            `sourceId` TEXT,
+                            `deduplicationKey` TEXT,
+                            `durationDays` INTEGER NOT NULL,
+                            `startsAtEpochMs` INTEGER NOT NULL,
+                            `expiresAtEpochMs` INTEGER NOT NULL,
+                            `revokedAtEpochMs` INTEGER,
+                            `description` TEXT NOT NULL,
+                            `createdAtEpochMs` INTEGER NOT NULL
+                        )
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE INDEX IF NOT EXISTS
+                        `index_earned_pro_passes_sourceType`
+                        ON `earned_pro_passes` (`sourceType`)
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE INDEX IF NOT EXISTS
+                        `index_earned_pro_passes_sourceId`
+                        ON `earned_pro_passes` (`sourceId`)
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE INDEX IF NOT EXISTS
+                        `index_earned_pro_passes_startsAtEpochMs`
+                        ON `earned_pro_passes` (`startsAtEpochMs`)
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE INDEX IF NOT EXISTS
+                        `index_earned_pro_passes_expiresAtEpochMs`
+                        ON `earned_pro_passes` (`expiresAtEpochMs`)
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE UNIQUE INDEX IF NOT EXISTS
+                        `index_earned_pro_passes_deduplicationKey`
+                        ON `earned_pro_passes` (`deduplicationKey`)
+                        """.trimIndent()
+                    )
+                }
+            }
+
+        private val MIGRATION_15_16 =
+            object : Migration(15, 16) {
+                override fun migrate(
+                    db: SupportSQLiteDatabase
+                ) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS `training_path_progress` (
+                            `sport` TEXT NOT NULL,
+                            `level` TEXT NOT NULL,
+                            `currentChapterId` TEXT NOT NULL,
+                            `currentLessonId` TEXT NOT NULL,
+                            `xp` INTEGER NOT NULL,
+                            `currentStreakDays` INTEGER NOT NULL,
+                            `longestStreakDays` INTEGER NOT NULL,
+                            `lastCompletedEpochDay` INTEGER,
+                            `totalLessonsCompleted` INTEGER NOT NULL,
+                            `totalChaptersCompleted` INTEGER NOT NULL,
+                            `curriculumVersion` INTEGER NOT NULL,
+                            `createdAtEpochMs` INTEGER NOT NULL,
+                            `updatedAtEpochMs` INTEGER NOT NULL,
+                            PRIMARY KEY(`sport`)
+                        )
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS `training_lesson_completions` (
+                            `sport` TEXT NOT NULL,
+                            `lessonId` TEXT NOT NULL,
+                            `chapterId` TEXT NOT NULL,
+                            `level` TEXT NOT NULL,
+                            `trainingSessionId` INTEGER NOT NULL,
+                            `xpAwarded` INTEGER NOT NULL,
+                            `activeTrainingSeconds` INTEGER NOT NULL,
+                            `completedCombos` INTEGER NOT NULL,
+                            `skippedCombos` INTEGER NOT NULL,
+                            `completedAtEpochDay` INTEGER NOT NULL,
+                            `curriculumVersion` INTEGER NOT NULL,
+                            `completedAtEpochMs` INTEGER NOT NULL,
+                            PRIMARY KEY(`sport`, `lessonId`)
+                        )
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE INDEX IF NOT EXISTS
+                        `index_training_lesson_completions_sport`
+                        ON `training_lesson_completions` (`sport`)
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE INDEX IF NOT EXISTS
+                        `index_training_lesson_completions_chapterId`
+                        ON `training_lesson_completions` (`chapterId`)
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE INDEX IF NOT EXISTS
+                        `index_training_lesson_completions_completedAtEpochDay`
+                        ON `training_lesson_completions` (`completedAtEpochDay`)
+                        """.trimIndent()
+                    )
+
+                    db.execSQL(
+                        """
+                        CREATE INDEX IF NOT EXISTS
+                        `index_training_lesson_completions_trainingSessionId`
+                        ON `training_lesson_completions` (`trainingSessionId`)
+                        """.trimIndent()
+                    )
+                }
+            }
+
         fun get(
             context: Context
         ): AppDatabase {
@@ -390,7 +541,9 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_10_11,
                         MIGRATION_11_12,
                         MIGRATION_12_13,
-                        MIGRATION_13_14
+                        MIGRATION_13_14,
+                        MIGRATION_14_15,
+                        MIGRATION_15_16
                     )
                     .fallbackToDestructiveMigration()
                     .build()

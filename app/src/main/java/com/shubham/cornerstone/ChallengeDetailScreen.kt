@@ -63,7 +63,9 @@ fun ChallengeDetailScreen(
     BackHandler(onBack = onBack)
 
     var confirmation by remember {
-        mutableStateOf<ChallengeDetailConfirmation?>(null)
+        mutableStateOf<ChallengeDetailConfirmation?>(
+            null
+        )
     }
 
     val isKickChallenge =
@@ -77,15 +79,21 @@ fun ChallengeDetailScreen(
 
     confirmation?.let { action ->
         ChallengeDetailConfirmationDialog(
-            title = challenge.definition.title,
-            action = action,
+            title =
+                challenge.definition.title,
+            action =
+                action,
             onConfirm = {
                 when (action) {
-                    ChallengeDetailConfirmation.ABANDON -> {
+                    ChallengeDetailConfirmation
+                        .ABANDON -> {
+
                         onAbandon()
                     }
 
-                    ChallengeDetailConfirmation.RESTART -> {
+                    ChallengeDetailConfirmation
+                        .RESTART -> {
+
                         onRestart()
                     }
                 }
@@ -121,19 +129,24 @@ fun ChallengeDetailScreen(
             )
 
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    start = 20.dp,
-                    end = 20.dp,
-                    top = 8.dp,
-                    bottom = 30.dp
-                ),
+                modifier =
+                    Modifier.fillMaxSize(),
+                contentPadding =
+                    PaddingValues(
+                        start = 20.dp,
+                        end = 20.dp,
+                        top = 8.dp,
+                        bottom = 30.dp
+                    ),
                 verticalArrangement =
-                    Arrangement.spacedBy(14.dp)
+                    Arrangement.spacedBy(
+                        14.dp
+                    )
             ) {
                 item {
                     ChallengeHeroCard(
-                        challenge = challenge
+                        challenge =
+                            challenge
                     )
                 }
 
@@ -152,12 +165,15 @@ fun ChallengeDetailScreen(
                     )
                 }
 
-                challenge.progress?.let { progress ->
+                challenge.progress?.let {
+                        progress ->
+
                     item {
                         ChallengeDetailProgressCard(
                             definition =
                                 challenge.definition,
-                            progress = progress
+                            progress =
+                                progress
                         )
                     }
                 }
@@ -165,7 +181,7 @@ fun ChallengeDetailScreen(
                 if (canOpenKickSession) {
                     item {
                         ChallengeKickSessionCard(
-                            validatedRepetitions =
+                            bestAttemptRepetitions =
                                 challenge.progress
                                     ?.totalValidatedRepetitions
                                     ?.coerceAtLeast(0)
@@ -174,7 +190,8 @@ fun ChallengeDetailScreen(
                                 challenge.definition
                                     .requiredRepetitionsPerDay
                                     .coerceAtLeast(1),
-                            enabled = !isProcessing,
+                            enabled =
+                                !isProcessing,
                             onStartKickSession =
                                 onStartKickSession
                         )
@@ -206,9 +223,12 @@ fun ChallengeDetailScreen(
 
                 item {
                     ChallengeDetailActionButton(
-                        status = challenge.status,
-                        enabled = !isProcessing,
-                        onStart = onStart,
+                        status =
+                            challenge.status,
+                        enabled =
+                            !isProcessing,
+                        onStart =
+                            onStart,
                         onAbandon = {
                             confirmation =
                                 ChallengeDetailConfirmation
@@ -241,43 +261,55 @@ private fun ChallengeDetailHeader(
             Alignment.CenterVertically
     ) {
         Surface(
-            modifier = Modifier.clickable {
-                onBack()
-            },
-            shape = RoundedCornerShape(12.dp),
-            color = Charcoal
+            modifier =
+                Modifier.clickable {
+                    onBack()
+                },
+            shape =
+                RoundedCornerShape(12.dp),
+            color =
+                Charcoal
         ) {
             Text(
                 text = "<-",
                 fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = FightRed,
-                modifier = Modifier.padding(
-                    horizontal = 14.dp,
-                    vertical = 10.dp
-                )
+                fontWeight =
+                    FontWeight.Bold,
+                color =
+                    FightRed,
+                modifier =
+                    Modifier.padding(
+                        horizontal = 14.dp,
+                        vertical = 10.dp
+                    )
             )
         }
 
         Spacer(
-            modifier = Modifier.size(14.dp)
+            modifier =
+                Modifier.size(14.dp)
         )
 
         Column {
             Text(
-                text = "Challenge Details",
+                text =
+                    "Challenge Details",
                 fontSize = 24.sp,
-                fontWeight = FontWeight.Black,
+                fontWeight =
+                    FontWeight.Black,
                 color =
-                    MaterialTheme.colorScheme
+                    MaterialTheme
+                        .colorScheme
                         .onBackground
             )
 
             Text(
-                text = "Review the goal before starting",
+                text =
+                    "Review the goal before starting",
                 fontSize = 13.sp,
                 color =
-                    MaterialTheme.colorScheme
+                    MaterialTheme
+                        .colorScheme
                         .onSurfaceVariant
             )
         }
@@ -288,18 +320,24 @@ private fun ChallengeDetailHeader(
 private fun ChallengeHeroCard(
     challenge: ChallengeWithProgress
 ) {
-    val definition = challenge.definition
+    val definition =
+        challenge.definition
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        color = Charcoal
+        modifier =
+            Modifier.fillMaxWidth(),
+        shape =
+            RoundedCornerShape(22.dp),
+        color =
+            Charcoal
     ) {
         Column(
-            modifier = Modifier.padding(20.dp)
+            modifier =
+                Modifier.padding(20.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier.fillMaxWidth(),
                 horizontalArrangement =
                     Arrangement.SpaceBetween,
                 verticalAlignment =
@@ -311,7 +349,8 @@ private fun ChallengeHeroCard(
                             .displayName,
                     highlighted =
                         definition.difficulty ==
-                                ChallengeDifficulty.ELITE
+                                ChallengeDifficulty
+                                    .ELITE
                 )
 
                 DetailBadge(
@@ -320,47 +359,58 @@ private fun ChallengeHeroCard(
                             .displayName(),
                     highlighted =
                         challenge.status ==
-                                ChallengeStatus.ACTIVE ||
+                                ChallengeStatus
+                                    .ACTIVE ||
                                 challenge.status ==
-                                ChallengeStatus.COMPLETED
+                                ChallengeStatus
+                                    .COMPLETED
                 )
             }
 
             Spacer(
-                modifier = Modifier.height(18.dp)
+                modifier =
+                    Modifier.height(18.dp)
             )
 
             Text(
-                text = definition.title,
+                text =
+                    definition.title,
                 fontSize = 27.sp,
-                fontWeight = FontWeight.Black,
+                fontWeight =
+                    FontWeight.Black,
                 color =
-                    MaterialTheme.colorScheme
+                    MaterialTheme
+                        .colorScheme
                         .onBackground
             )
 
             Spacer(
-                modifier = Modifier.height(8.dp)
+                modifier =
+                    Modifier.height(8.dp)
             )
 
             Text(
-                text = definition.shortDescription,
+                text =
+                    definition.shortDescription,
                 fontSize = 15.sp,
                 lineHeight = 22.sp,
                 color =
-                    MaterialTheme.colorScheme
+                    MaterialTheme
+                        .colorScheme
                         .onSurfaceVariant
             )
 
             Spacer(
-                modifier = Modifier.height(16.dp)
+                modifier =
+                    Modifier.height(16.dp)
             )
 
             DetailBadge(
                 text =
                     definition.category
                         .displayName,
-                highlighted = true
+                highlighted =
+                    true
             )
         }
     }
@@ -371,14 +421,17 @@ private fun ChallengeDescriptionCard(
     description: String
 ) {
     ChallengeSectionCard(
-        title = "About this challenge"
+        title =
+            "About this challenge"
     ) {
         Text(
-            text = description,
+            text =
+                description,
             fontSize = 14.sp,
             lineHeight = 22.sp,
             color =
-                MaterialTheme.colorScheme
+                MaterialTheme
+                    .colorScheme
                     .onSurfaceVariant
         )
     }
@@ -389,10 +442,12 @@ private fun ChallengeRequirementsCard(
     definition: ChallengeDefinition
 ) {
     ChallengeSectionCard(
-        title = "Daily requirements"
+        title =
+            "Daily requirements"
     ) {
         RequirementLine(
-            label = "Duration",
+            label =
+                "Duration",
             value =
                 "${definition.durationDays} day" +
                         if (
@@ -406,7 +461,8 @@ private fun ChallengeRequirementsCard(
         )
 
         RequirementLine(
-            label = "Sessions",
+            label =
+                "Sessions",
             value =
                 "${definition.requiredSessionsPerDay} per day"
         )
@@ -416,7 +472,8 @@ private fun ChallengeRequirementsCard(
             0
         ) {
             RequirementLine(
-                label = "Active training",
+                label =
+                    "Active training",
                 value =
                     "${definition.requiredActiveMinutesPerDay} minutes per day"
             )
@@ -427,14 +484,16 @@ private fun ChallengeRequirementsCard(
             0
         ) {
             RequirementLine(
-                label = "Repetitions",
+                label =
+                    "Repetitions",
                 value =
-                    "${definition.requiredRepetitionsPerDay} reps"
+                    "${definition.requiredRepetitionsPerDay} reps in one session"
             )
         }
 
         RequirementLine(
-            label = "Consecutive days",
+            label =
+                "Consecutive days",
             value =
                 if (
                     definition.requiresConsecutiveDays
@@ -443,7 +502,8 @@ private fun ChallengeRequirementsCard(
                 } else {
                     "Not required"
                 },
-            showDivider = false
+            showDivider =
+                false
         )
     }
 }
@@ -458,28 +518,36 @@ private fun RequirementLine(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 10.dp),
+                .padding(
+                    vertical = 10.dp
+                ),
             horizontalArrangement =
                 Arrangement.SpaceBetween,
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
             Text(
-                text = label,
+                text =
+                    label,
                 fontSize = 13.sp,
                 color =
-                    MaterialTheme.colorScheme
+                    MaterialTheme
+                        .colorScheme
                         .onSurfaceVariant
             )
 
             Text(
-                text = value,
+                text =
+                    value,
                 fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight =
+                    FontWeight.Bold,
                 color =
-                    MaterialTheme.colorScheme
+                    MaterialTheme
+                        .colorScheme
                         .onBackground,
-                textAlign = TextAlign.End
+                textAlign =
+                    TextAlign.End
             )
         }
 
@@ -504,7 +572,10 @@ private fun ChallengeDetailProgressCard(
     progress: ChallengeProgress
 ) {
     val fraction =
-        if (definition.durationDays > 0) {
+        if (
+            definition.durationDays >
+            0
+        ) {
             progress.completedDays
                 .toFloat()
                 .div(
@@ -519,11 +590,17 @@ private fun ChallengeDetailProgressCard(
             0f
         }
 
+    val isKickChallenge =
+        definition.id ==
+                ONE_HUNDRED_KICKS_CHALLENGE_ID
+
     ChallengeSectionCard(
-        title = "Your progress"
+        title =
+            "Your progress"
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier.fillMaxWidth(),
             horizontalArrangement =
                 Arrangement.SpaceBetween
         ) {
@@ -531,9 +608,11 @@ private fun ChallengeDetailProgressCard(
                 text =
                     "${progress.completedDays} of ${definition.durationDays} days",
                 fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight =
+                    FontWeight.Bold,
                 color =
-                    MaterialTheme.colorScheme
+                    MaterialTheme
+                        .colorScheme
                         .onSurfaceVariant
             )
 
@@ -541,13 +620,16 @@ private fun ChallengeDetailProgressCard(
                 text =
                     "${(fraction * 100).toInt()}%",
                 fontSize = 13.sp,
-                fontWeight = FontWeight.Black,
-                color = FightRed
+                fontWeight =
+                    FontWeight.Black,
+                color =
+                    FightRed
             )
         }
 
         Spacer(
-            modifier = Modifier.height(10.dp)
+            modifier =
+                Modifier.height(10.dp)
         )
 
         LinearProgressIndicator(
@@ -557,34 +639,43 @@ private fun ChallengeDetailProgressCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(8.dp),
-            color = FightRed,
-            trackColor = Color(0xFF29282C)
+            color =
+                FightRed,
+            trackColor =
+                Color(0xFF29282C)
         )
 
         Spacer(
-            modifier = Modifier.height(16.dp)
+            modifier =
+                Modifier.height(16.dp)
         )
 
         ProgressValueRow(
-            label = "Current day",
-            value = progress.currentDay.toString()
+            label =
+                "Current day",
+            value =
+                progress.currentDay
+                    .toString()
         )
 
         ProgressValueRow(
-            label = "Current streak",
+            label =
+                "Current streak",
             value =
                 "${progress.currentStreakDays} days"
         )
 
         ProgressValueRow(
-            label = "Validated sessions",
+            label =
+                "Validated sessions",
             value =
                 progress.totalValidatedSessions
                     .toString()
         )
 
         ProgressValueRow(
-            label = "Validated minutes",
+            label =
+                "Validated minutes",
             value =
                 progress.totalValidatedMinutes
                     .toString()
@@ -597,7 +688,12 @@ private fun ChallengeDetailProgressCard(
             0
         ) {
             ProgressValueRow(
-                label = "Validated repetitions",
+                label =
+                    if (isKickChallenge) {
+                        "Best single-session kicks"
+                    } else {
+                        "Validated repetitions"
+                    },
                 value =
                     progress
                         .totalValidatedRepetitions
@@ -606,85 +702,104 @@ private fun ChallengeDetailProgressCard(
         }
 
         ProgressValueRow(
-            label = "Integrity",
+            label =
+                "Integrity",
             value =
                 progress.integrityStatus
                     .displayName(),
-            showDivider = false
+            showDivider =
+                false
         )
     }
 }
 
 @Composable
 private fun ChallengeKickSessionCard(
-    validatedRepetitions: Int,
+    bestAttemptRepetitions: Int,
     requiredRepetitions: Int,
     enabled: Boolean,
     onStartKickSession: () -> Unit
 ) {
     val safeRequiredRepetitions =
-        requiredRepetitions.coerceAtLeast(1)
+        requiredRepetitions
+            .coerceAtLeast(1)
 
-    val safeValidatedRepetitions =
-        validatedRepetitions.coerceIn(
-            minimumValue = 0,
-            maximumValue =
-                safeRequiredRepetitions
-        )
+    val safeBestAttempt =
+        bestAttemptRepetitions
+            .coerceIn(
+                minimumValue = 0,
+                maximumValue =
+                    safeRequiredRepetitions
+            )
 
-    val hasSavedProgress =
-        safeValidatedRepetitions > 0
+    val hasPreviousAttempt =
+        safeBestAttempt > 0
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = FightRed.copy(alpha = 0.13f)
+        modifier =
+            Modifier.fillMaxWidth(),
+        shape =
+            RoundedCornerShape(20.dp),
+        color =
+            FightRed.copy(
+                alpha = 0.13f
+            )
     ) {
         Column(
-            modifier = Modifier.padding(18.dp)
+            modifier =
+                Modifier.padding(18.dp)
         ) {
             Text(
-                text = "KICK SESSION",
+                text =
+                    "KICK SESSION",
                 fontSize = 11.sp,
-                fontWeight = FontWeight.Black,
+                fontWeight =
+                    FontWeight.Black,
                 letterSpacing = 1.4.sp,
-                color = FightRed
+                color =
+                    FightRed
             )
 
             Spacer(
-                modifier = Modifier.height(8.dp)
+                modifier =
+                    Modifier.height(8.dp)
             )
 
             Text(
                 text =
-                    if (hasSavedProgress) {
-                        "$safeValidatedRepetitions of $safeRequiredRepetitions validated kicks"
+                    if (hasPreviousAttempt) {
+                        "Best attempt: $safeBestAttempt of $safeRequiredRepetitions kicks"
                     } else {
-                        "Choose Guided Solo or Manual Partner mode"
+                        "Complete all $safeRequiredRepetitions kicks in one session"
                     },
                 fontSize = 17.sp,
-                fontWeight = FontWeight.Black,
+                fontWeight =
+                    FontWeight.Black,
                 color =
-                    MaterialTheme.colorScheme
+                    MaterialTheme
+                        .colorScheme
                         .onBackground
             )
 
             Spacer(
-                modifier = Modifier.height(7.dp)
+                modifier =
+                    Modifier.height(7.dp)
             )
 
             Text(
                 text =
-                    "Guided mode counts kicks through audio cues. Manual mode allows a partner to operate the counter.",
+                    "Every attempt starts from zero. Partial attempts are saved as history, but they cannot be combined. Choose Guided Solo or Manual Partner mode.",
                 fontSize = 13.sp,
                 lineHeight = 20.sp,
                 color =
-                    MaterialTheme.colorScheme
+                    MaterialTheme
+                        .colorScheme
                         .onSurfaceVariant
             )
 
             Spacer(
-                modifier = Modifier.height(16.dp)
+                modifier =
+                    Modifier.height(16.dp)
             )
 
             Surface(
@@ -695,7 +810,8 @@ private fun ChallengeKickSessionCard(
                     ) {
                         onStartKickSession()
                     },
-                shape = RoundedCornerShape(16.dp),
+                shape =
+                    RoundedCornerShape(16.dp),
                 color =
                     if (enabled) {
                         FightRed
@@ -712,21 +828,14 @@ private fun ChallengeKickSessionCard(
                 ) {
                     Text(
                         text =
-                            when {
-                                !enabled -> {
-                                    "Please wait..."
-                                }
-
-                                hasSavedProgress -> {
-                                    "Continue today’s kicks"
-                                }
-
-                                else -> {
-                                    "Start kick session"
-                                }
+                            if (enabled) {
+                                "Start new 100-kick attempt"
+                            } else {
+                                "Please wait..."
                             },
                         fontSize = 15.sp,
-                        fontWeight = FontWeight.Black,
+                        fontWeight =
+                            FontWeight.Black,
                         color =
                             if (enabled) {
                                 Color.White
@@ -749,9 +858,12 @@ private fun ProgressValueRow(
     showDivider: Boolean = true
 ) {
     RequirementLine(
-        label = label,
-        value = value,
-        showDivider = showDivider
+        label =
+            label,
+        value =
+            value,
+        showDivider =
+            showDivider
     )
 }
 
@@ -779,77 +891,103 @@ private fun ChallengeDetailRewardCard(
         }
 
     val canClaimReward =
-        status == ChallengeStatus.COMPLETED &&
+        status ==
+                ChallengeStatus.COMPLETED &&
                 !rewardClaimed &&
-                reward.type != ChallengeRewardType.NONE
+                reward.type !=
+                ChallengeRewardType.NONE
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        color = FightRed.copy(alpha = 0.11f)
+        modifier =
+            Modifier.fillMaxWidth(),
+        shape =
+            RoundedCornerShape(18.dp),
+        color =
+            FightRed.copy(
+                alpha = 0.11f
+            )
     ) {
         Column(
-            modifier = Modifier.padding(18.dp)
+            modifier =
+                Modifier.padding(18.dp)
         ) {
             Text(
-                text = "REWARD",
+                text =
+                    "REWARD",
                 fontSize = 11.sp,
-                fontWeight = FontWeight.Black,
+                fontWeight =
+                    FontWeight.Black,
                 letterSpacing = 1.2.sp,
-                color = FightRed
+                color =
+                    FightRed
             )
 
             Spacer(
-                modifier = Modifier.height(8.dp)
+                modifier =
+                    Modifier.height(8.dp)
             )
 
             Text(
-                text = rewardText,
+                text =
+                    rewardText,
                 fontSize = 17.sp,
-                fontWeight = FontWeight.Black,
+                fontWeight =
+                    FontWeight.Black,
                 color =
-                    MaterialTheme.colorScheme
+                    MaterialTheme
+                        .colorScheme
                         .onBackground
             )
 
             when {
                 rewardClaimed -> {
                     Spacer(
-                        modifier = Modifier.height(8.dp)
+                        modifier =
+                            Modifier.height(8.dp)
                     )
 
                     Text(
-                        text = "Reward claimed",
+                        text =
+                            "Reward claimed",
                         fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = FightRed
+                        fontWeight =
+                            FontWeight.Bold,
+                        color =
+                            FightRed
                     )
                 }
 
-                status == ChallengeStatus.COMPLETED &&
+                status ==
+                        ChallengeStatus.COMPLETED &&
                         reward.type ==
                         ChallengeRewardType.NONE -> {
 
                     Spacer(
-                        modifier = Modifier.height(8.dp)
+                        modifier =
+                            Modifier.height(8.dp)
                     )
 
                     Text(
-                        text = "Challenge completed",
+                        text =
+                            "Challenge completed",
                         fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight =
+                            FontWeight.Bold,
                         color =
-                            MaterialTheme.colorScheme
+                            MaterialTheme
+                                .colorScheme
                                 .onSurfaceVariant
                     )
                 }
 
-                status != ChallengeStatus.COMPLETED &&
+                status !=
+                        ChallengeStatus.COMPLETED &&
                         reward.type !=
                         ChallengeRewardType.NONE -> {
 
                     Spacer(
-                        modifier = Modifier.height(8.dp)
+                        modifier =
+                            Modifier.height(8.dp)
                     )
 
                     Text(
@@ -858,7 +996,8 @@ private fun ChallengeDetailRewardCard(
                         fontSize = 13.sp,
                         lineHeight = 19.sp,
                         color =
-                            MaterialTheme.colorScheme
+                            MaterialTheme
+                                .colorScheme
                                 .onSurfaceVariant
                     )
                 }
@@ -866,7 +1005,8 @@ private fun ChallengeDetailRewardCard(
 
             if (canClaimReward) {
                 Spacer(
-                    modifier = Modifier.height(16.dp)
+                    modifier =
+                        Modifier.height(16.dp)
                 )
 
                 Surface(
@@ -877,7 +1017,8 @@ private fun ChallengeDetailRewardCard(
                         ) {
                             onClaimReward()
                         },
-                    shape = RoundedCornerShape(15.dp),
+                    shape =
+                        RoundedCornerShape(15.dp),
                     color =
                         if (enabled) {
                             FightRed
@@ -939,14 +1080,17 @@ private fun ChallengeSafetyCard(
         }
 
     ChallengeSectionCard(
-        title = "Safety"
+        title =
+            "Safety"
     ) {
         Text(
-            text = message,
+            text =
+                message,
             fontSize = 13.sp,
             lineHeight = 20.sp,
             color =
-                MaterialTheme.colorScheme
+                MaterialTheme
+                    .colorScheme
                     .onSurfaceVariant
         )
     }
@@ -967,32 +1111,48 @@ private fun ChallengeDetailActionButton(
 
     when (status) {
         ChallengeStatus.NOT_STARTED -> {
-            text = "Start Challenge"
-            action = onStart
-            active = true
-            backgroundColor = FightRed
+            text =
+                "Start Challenge"
+            action =
+                onStart
+            active =
+                true
+            backgroundColor =
+                FightRed
         }
 
         ChallengeStatus.ACTIVE -> {
-            text = "Abandon Challenge"
-            action = onAbandon
-            active = true
-            backgroundColor = Color(0xFF29282C)
+            text =
+                "Abandon Challenge"
+            action =
+                onAbandon
+            active =
+                true
+            backgroundColor =
+                Color(0xFF29282C)
         }
 
         ChallengeStatus.COMPLETED -> {
-            text = "Challenge Completed"
-            action = {}
-            active = false
-            backgroundColor = Color(0xFF29282C)
+            text =
+                "Challenge Completed"
+            action =
+                {}
+            active =
+                false
+            backgroundColor =
+                Color(0xFF29282C)
         }
 
         ChallengeStatus.FAILED,
         ChallengeStatus.ABANDONED -> {
-            text = "Restart Challenge"
-            action = onRestart
-            active = true
-            backgroundColor = FightRed
+            text =
+                "Restart Challenge"
+            action =
+                onRestart
+            active =
+                true
+            backgroundColor =
+                FightRed
         }
     }
 
@@ -1000,12 +1160,15 @@ private fun ChallengeDetailActionButton(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(
-                enabled = enabled && active
+                enabled =
+                    enabled && active
             ) {
                 action()
             },
-        shape = RoundedCornerShape(16.dp),
-        color = backgroundColor
+        shape =
+            RoundedCornerShape(16.dp),
+        color =
+            backgroundColor
     ) {
         Box(
             modifier = Modifier
@@ -1022,7 +1185,8 @@ private fun ChallengeDetailActionButton(
                         "Please wait..."
                     },
                 fontSize = 15.sp,
-                fontWeight = FontWeight.Black,
+                fontWeight =
+                    FontWeight.Black,
                 color =
                     if (active) {
                         Color.White
@@ -1042,24 +1206,32 @@ private fun ChallengeSectionCard(
     content: @Composable () -> Unit
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        color = Charcoal
+        modifier =
+            Modifier.fillMaxWidth(),
+        shape =
+            RoundedCornerShape(18.dp),
+        color =
+            Charcoal
     ) {
         Column(
-            modifier = Modifier.padding(18.dp)
+            modifier =
+                Modifier.padding(18.dp)
         ) {
             Text(
-                text = title,
+                text =
+                    title,
                 fontSize = 17.sp,
-                fontWeight = FontWeight.Black,
+                fontWeight =
+                    FontWeight.Black,
                 color =
-                    MaterialTheme.colorScheme
+                    MaterialTheme
+                        .colorScheme
                         .onBackground
             )
 
             Spacer(
-                modifier = Modifier.height(12.dp)
+                modifier =
+                    Modifier.height(12.dp)
             )
 
             content()
@@ -1073,18 +1245,23 @@ private fun DetailBadge(
     highlighted: Boolean
 ) {
     Surface(
-        shape = RoundedCornerShape(999.dp),
+        shape =
+            RoundedCornerShape(999.dp),
         color =
             if (highlighted) {
-                FightRed.copy(alpha = 0.16f)
+                FightRed.copy(
+                    alpha = 0.16f
+                )
             } else {
                 Color(0xFF29282C)
             }
     ) {
         Text(
-            text = text.uppercase(),
+            text =
+                text.uppercase(),
             fontSize = 9.sp,
-            fontWeight = FontWeight.Black,
+            fontWeight =
+                FontWeight.Black,
             letterSpacing = 0.8.sp,
             color =
                 if (highlighted) {
@@ -1094,10 +1271,11 @@ private fun DetailBadge(
                         .colorScheme
                         .onSurfaceVariant
                 },
-            modifier = Modifier.padding(
-                horizontal = 10.dp,
-                vertical = 6.dp
-            )
+            modifier =
+                Modifier.padding(
+                    horizontal = 10.dp,
+                    vertical = 6.dp
+                )
         )
     }
 }
@@ -1111,10 +1289,12 @@ private fun ChallengeDetailConfirmationDialog(
 ) {
     val abandoning =
         action ==
-                ChallengeDetailConfirmation.ABANDON
+                ChallengeDetailConfirmation
+                    .ABANDON
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest =
+            onDismiss,
         title = {
             Text(
                 text =
@@ -1137,7 +1317,8 @@ private fun ChallengeDetailConfirmationDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = onConfirm
+                onClick =
+                    onConfirm
             ) {
                 Text(
                     text =
@@ -1146,24 +1327,30 @@ private fun ChallengeDetailConfirmationDialog(
                         } else {
                             "RESTART"
                         },
-                    color = FightRed,
-                    fontWeight = FontWeight.Bold
+                    color =
+                        FightRed,
+                    fontWeight =
+                        FontWeight.Bold
                 )
             }
         },
         dismissButton = {
             TextButton(
-                onClick = onDismiss
+                onClick =
+                    onDismiss
             ) {
                 Text(
-                    text = "CANCEL"
+                    text =
+                        "CANCEL"
                 )
             }
         }
     )
 }
 
-private fun ChallengeStatus.displayName(): String {
+private fun ChallengeStatus.displayName():
+        String {
+
     return when (this) {
         ChallengeStatus.NOT_STARTED ->
             "Not Started"
