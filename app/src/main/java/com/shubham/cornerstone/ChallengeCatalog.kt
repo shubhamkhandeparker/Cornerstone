@@ -92,7 +92,7 @@ object ChallengeCatalog {
             shortDescription =
                 "Complete 100 controlled kicks in one session.",
             fullDescription =
-                "Complete 100 technically controlled kicks. Use balanced sets, maintain proper form and stop if pain or loss of control develops.",
+                "Complete 100 technically controlled kicks in one validated session. Split attempts do not complete the challenge. Use balanced sets, maintain proper form and stop if pain or loss of control develops.",
             category =
                 ChallengeCategory.KICKS,
             difficulty =
@@ -121,7 +121,7 @@ object ChallengeCatalog {
             shortDescription =
                 "Build consistency with basic striking sessions.",
             fullDescription =
-                "Complete one validated fundamentals-focused session each day for 14 days. Prioritize stance, guard, footwork, straight punches and defensive movement.",
+                "Complete one validated striking session lasting at least 15 active minutes each day for 14 consecutive days. Prioritize stance, guard, footwork, straight punches and defensive movement.",
             category =
                 ChallengeCategory.TECHNIQUE,
             difficulty =
@@ -150,7 +150,7 @@ object ChallengeCatalog {
             shortDescription =
                 "Improve work capacity through consistent training.",
             fullDescription =
-                "Complete at least one validated conditioning or shadowboxing session for 21 days. Recovery, hydration and safe intensity remain part of the challenge.",
+                "Complete at least one validated conditioning workout for 21 consecutive days. Recovery, hydration and safe intensity remain part of the challenge.",
             category =
                 ChallengeCategory.CONDITIONING,
             difficulty =
@@ -166,7 +166,7 @@ object ChallengeCatalog {
                 points = 500
             ),
             isProOnly = false,
-            isActive = true
+            isActive = false
         )
     }
 
@@ -179,7 +179,7 @@ object ChallengeCatalog {
             shortDescription =
                 "Develop consistent core-conditioning habits.",
             fullDescription =
-                "Complete one core-focused training requirement each day for 14 days. Use controlled repetitions and avoid continuing through sharp pain.",
+                "Complete one validated core-focused workout lasting at least 10 active minutes each day for 14 consecutive days. Use controlled repetitions and avoid continuing through sharp pain.",
             category =
                 ChallengeCategory.CORE,
             difficulty =
@@ -195,7 +195,7 @@ object ChallengeCatalog {
                 points = 300
             ),
             isProOnly = false,
-            isActive = true
+            isActive = false
         )
     }
 
@@ -206,9 +206,9 @@ object ChallengeCatalog {
             id = ELITE_75_ID,
             title = "75-Day Elite",
             shortDescription =
-                "A demanding multi-session consistency challenge.",
+                "Complete three separate one-hour sessions every day.",
             fullDescription =
-                "Complete three validated training sessions every day for 75 consecutive days. This challenge is intended for experienced athletes and should include planned recovery and responsible intensity.",
+                "Complete three separate validated training sessions every day for 75 consecutive days. Each session must include at least 60 active training minutes. Shorter sessions cannot be combined to satisfy the requirement. This challenge is intended for experienced athletes and requires planned recovery and responsible intensity.",
             category =
                 ChallengeCategory.ELITE,
             difficulty =

@@ -14,10 +14,12 @@ data class ChallengeWithProgress(
             ?: ChallengeStatus.NOT_STARTED
 
     val isActive: Boolean
-        get() = status == ChallengeStatus.ACTIVE
+        get() = status ==
+                ChallengeStatus.ACTIVE
 
     val isCompleted: Boolean
-        get() = status == ChallengeStatus.COMPLETED
+        get() = status ==
+                ChallengeStatus.COMPLETED
 }
 
 sealed interface ChallengeRewardClaimResult {
@@ -30,8 +32,19 @@ sealed interface ChallengeRewardClaimResult {
         val points: Int
     ) : ChallengeRewardClaimResult
 
+    /*
+     * isGranted = true means the earned Pro Pass
+     * was safely saved.
+     *
+     * isGranted = false means the Pro Pass
+     * repository has not been connected yet.
+     *
+     * This existing result name is temporarily kept
+     * so the current ViewModel continues compiling.
+     */
     data class ProPassPending(
-        val proPassDays: Int
+        val proPassDays: Int,
+        val isGranted: Boolean = false
     ) : ChallengeRewardClaimResult
 
     data object NoReward :
@@ -50,7 +63,9 @@ sealed interface ChallengeRewardClaimResult {
 class ChallengeRepository(
     private val dao: ChallengeProgressDao,
     private val pointsRepository:
-    CornerstonePointsRepository? = null
+    CornerstonePointsRepository? = null,
+    private val earnedProPassRepository:
+    EarnedProPassRepository? = null
 ) {
 
     fun observeChallenges():
@@ -97,6 +112,10 @@ class ChallengeRepository(
                     challengeId
                 ) ?: return@map null
 
+            if (!definition.isActive) {
+                return@map null
+            }
+
             ChallengeWithProgress(
                 definition = definition,
                 progress =
@@ -123,6 +142,10 @@ class ChallengeRepository(
                             )
                             ?: return@mapNotNull null
 
+                    if (!definition.isActive) {
+                        return@mapNotNull null
+                    }
+
                     ChallengeWithProgress(
                         definition = definition,
                         progress =
@@ -147,6 +170,10 @@ class ChallengeRepository(
                                 entity.challengeId
                             )
                             ?: return@mapNotNull null
+
+                    if (!definition.isActive) {
+                        return@mapNotNull null
+                    }
 
                     ChallengeWithProgress(
                         definition = definition,
@@ -183,7 +210,9 @@ class ChallengeRepository(
 
             require(
                 existing?.status !=
-                        ChallengeStatus.ACTIVE.name
+                        ChallengeStatus
+                            .ACTIVE
+                            .name
             ) {
                 "This challenge is already active."
             }
@@ -195,7 +224,8 @@ class ChallengeRepository(
                     status =
                         ChallengeStatus.ACTIVE,
                     integrityStatus =
-                        ChallengeIntegrityStatus.VALID,
+                        ChallengeIntegrityStatus
+                            .VALID,
                     startedAtEpochDay =
                         today.toEpochDay(),
                     completedAtEpochDay =
@@ -236,13 +266,16 @@ class ChallengeRepository(
 
             require(
                 existing.status ==
-                        ChallengeStatus.ACTIVE.name
+                        ChallengeStatus
+                            .ACTIVE
+                            .name
             ) {
                 "Only active challenges can be abandoned."
             }
 
             dao.updateStatus(
-                challengeId = challengeId,
+                challengeId =
+                    challengeId,
                 status =
                     ChallengeStatus
                         .ABANDONED
@@ -261,8 +294,10 @@ class ChallengeRepository(
             )
 
             startChallenge(
-                challengeId = challengeId,
-                today = today
+                challengeId =
+                    challengeId,
+                today =
+                    today
             ).getOrThrow()
         }
     }
@@ -328,19 +363,10 @@ class ChallengeRepository(
                     }
 
                     ChallengeRewardType.PRO_PASS -> {
-                        /*
-                         * Do not mark this reward claimed
-                         * until earned Pro Pass storage has
-                         * been written successfully.
-                         */
-                        ChallengeRewardClaimResult
-                            .ProPassPending(
-                                proPassDays =
-                                    definition
-                                        .reward
-                                        .proPassDays
-                                        .coerceAtLeast(1)
-                            )
+                        claimProPassReward(
+                            definition =
+                                definition
+                        )
                     }
                 }
             }
@@ -381,9 +407,13 @@ class ChallengeRepository(
                 is ChallengeRewardClaimResult
                 .ProPassPending -> {
 
-                    error(
-                        "Earned Pro Pass storage is not implemented yet."
-                    )
+                    if (claimResult.isGranted) {
+                        Unit
+                    } else {
+                        error(
+                            "Earned Pro Pass storage is not connected yet."
+                        )
+                    }
                 }
 
                 ChallengeRewardClaimResult
@@ -446,8 +476,11 @@ class ChallengeRepository(
 
             PointsRewardResult.AlreadyAwarded -> {
                 /*
-                 * The unique ledger key proves that
-                 * points were previously granted.
+                 * The unique ledger entry proves the
+                 * points were previously awarded.
+                 *
+                 * Repair the challenge claim flag
+                 * without adding points again.
                  */
                 dao.markRewardClaimed(
                     challengeId =
@@ -461,6 +494,86 @@ class ChallengeRepository(
             }
 
             PointsRewardResult.InvalidReward -> {
+                ChallengeRewardClaimResult
+                    .InvalidReward
+            }
+        }
+    }
+
+    private suspend fun claimProPassReward(
+        definition: ChallengeDefinition
+    ): ChallengeRewardClaimResult {
+        val proPassDays =
+            definition.reward.proPassDays
+                .coerceAtLeast(0)
+
+        if (proPassDays <= 0) {
+            return ChallengeRewardClaimResult
+                .InvalidReward
+        }
+
+        val repository =
+            earnedProPassRepository
+                ?: return ChallengeRewardClaimResult
+                    .ProPassPending(
+                        proPassDays =
+                            proPassDays,
+                        isGranted =
+                            false
+                    )
+
+        return when (
+            repository.grantChallengeProPass(
+                challengeId =
+                    definition.id,
+                challengeTitle =
+                    definition.title,
+                proPassDays =
+                    proPassDays
+            )
+        ) {
+            is EarnedProPassGrantResult
+            .Granted -> {
+
+                dao.markRewardClaimed(
+                    challengeId =
+                        definition.id
+                )
+
+                ChallengeRewardClaimResult
+                    .ProPassPending(
+                        proPassDays =
+                            proPassDays,
+                        isGranted =
+                            true
+                    )
+            }
+
+            is EarnedProPassGrantResult
+            .AlreadyGranted -> {
+
+                /*
+                 * The unique pass key proves the reward
+                 * was previously stored. Repair the
+                 * challenge claim flag safely.
+                 */
+                dao.markRewardClaimed(
+                    challengeId =
+                        definition.id
+                )
+
+                ChallengeRewardClaimResult
+                    .ProPassPending(
+                        proPassDays =
+                            proPassDays,
+                        isGranted =
+                            true
+                    )
+            }
+
+            EarnedProPassGrantResult
+                .InvalidReward -> {
+
                 ChallengeRewardClaimResult
                     .InvalidReward
             }

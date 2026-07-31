@@ -38,8 +38,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.shubham.cornerstone.ui.theme.CornerstoneTheme
 import com.shubham.cornerstone.ui.theme.FightRed
 import com.shubham.cornerstone.ui.theme.InkBlack
-import kotlinx.coroutines.launch
 import java.time.LocalDate
+import kotlinx.coroutines.launch
 
 private const val FREE_REST_SECONDS = 15
 
@@ -51,13 +51,16 @@ private const val FIGHT_GEAR_CATALOG_URL =
 
 class MainActivity : ComponentActivity() {
 
-    override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onCreate(
+        savedInstanceState: Bundle?
+    ) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val database = AppDatabase.get(
-            applicationContext
-        )
+        val database =
+            AppDatabase.get(
+                applicationContext
+            )
 
         val userRepository =
             UserProfileRepository(
@@ -92,6 +95,19 @@ class MainActivity : ComponentActivity() {
                 database.cornerstonePointsDao()
             )
 
+        val earnedProPassRepository =
+            EarnedProPassRepository(
+                database = database
+            )
+
+        val proEntitlementRepository =
+            ProEntitlementRepository(
+                userRepository =
+                    userRepository,
+                earnedProPassRepository =
+                    earnedProPassRepository
+            )
+
         val progressPhotoRepository =
             ProgressPhotoRepository(
                 dao =
@@ -123,7 +139,9 @@ class MainActivity : ComponentActivity() {
                     database
                         .challengeProgressDao(),
                 pointsRepository =
-                    cornerstonePointsRepository
+                    cornerstonePointsRepository,
+                earnedProPassRepository =
+                    earnedProPassRepository
             )
 
         val challengeProgressEngine =
@@ -167,7 +185,9 @@ class MainActivity : ComponentActivity() {
                         challengeRepository =
                             challengeRepository,
                         challengeProgressEngine =
-                            challengeProgressEngine
+                            challengeProgressEngine,
+                        proEntitlementRepository =
+                            proEntitlementRepository
                     )
                 }
             }
@@ -221,16 +241,36 @@ fun CornerstoneApp(
     challengeRepository:
     ChallengeRepository,
     challengeProgressEngine:
-    ChallengeProgressEngine
+    ChallengeProgressEngine,
+    proEntitlementRepository:
+    ProEntitlementRepository
 ) {
-    val context = LocalContext.current
+    val context =
+        LocalContext.current
 
-    val profile by userRepository.profile
+    val profile by
+    userRepository.profile
         .collectAsStateWithLifecycle(
             initialValue = null
         )
 
-    val weightEntries by weightRepository.entries
+    val entitlementFlow =
+        remember(
+            proEntitlementRepository
+        ) {
+            proEntitlementRepository
+                .observeEntitlement()
+        }
+
+    val proEntitlementState by
+    entitlementFlow
+        .collectAsStateWithLifecycle(
+            initialValue =
+                ProEntitlementState()
+        )
+
+    val weightEntries by
+    weightRepository.entries
         .collectAsStateWithLifecycle(
             initialValue = emptyList()
         )
@@ -256,7 +296,8 @@ fun CornerstoneApp(
     val challengeViewModel:
             ChallengeViewModel =
         viewModel(
-            key = "challenge_view_model",
+            key =
+                "challenge_view_model",
             factory =
                 ChallengeViewModel.Factory(
                     repository =
@@ -268,10 +309,18 @@ fun CornerstoneApp(
     challengeViewModel.uiState
         .collectAsStateWithLifecycle()
 
-    val currentProfile = profile
+    val currentProfile =
+        profile
 
-    var screen by rememberSaveable {
-        mutableStateOf(Screen.HOME)
+    val effectiveIsPro =
+        proEntitlementState.isPro ||
+                currentProfile?.isPro == true
+
+    var screen by
+    rememberSaveable {
+        mutableStateOf(
+            Screen.HOME
+        )
     }
 
     var paywallDestination by
@@ -304,8 +353,11 @@ fun CornerstoneApp(
         mutableIntStateOf(0)
     }
 
-    var cutStatus by remember {
-        mutableStateOf<CutStatus?>(null)
+    var cutStatus by
+    remember {
+        mutableStateOf<CutStatus?>(
+            null
+        )
     }
 
     var playlistSessionCombos by
@@ -344,7 +396,8 @@ fun CornerstoneApp(
             mutableSetOf<String>()
         }
 
-    val scope = rememberCoroutineScope()
+    val scope =
+        rememberCoroutineScope()
 
     LaunchedEffect(
         fightGearRepository
@@ -379,7 +432,8 @@ fun CornerstoneApp(
             Toast.LENGTH_SHORT
         ).show()
 
-        challengeViewModel.clearMessage()
+        challengeViewModel
+            .clearMessage()
     }
 
     LaunchedEffect(
@@ -388,7 +442,10 @@ fun CornerstoneApp(
         currentProfile?.targetWeightKg,
         currentProfile?.fightDateEpochDay
     ) {
-        if (screen == Screen.WEIGHT_CUT) {
+        if (
+            screen ==
+            Screen.WEIGHT_CUT
+        ) {
             cutStatus =
                 weightRepository
                     .computeStatus()
@@ -409,7 +466,9 @@ fun CornerstoneApp(
             )
         }
 
-        !currentProfile.onboardingComplete -> {
+        !currentProfile
+            .onboardingComplete -> {
+
             val onboardingVm:
                     OnboardingViewModel =
                 viewModel(
@@ -421,19 +480,27 @@ fun CornerstoneApp(
                 )
 
             OnboardingScreen(
-                viewModel = onboardingVm,
-                onFinished = { }
+                viewModel =
+                    onboardingVm,
+                onFinished = {}
             )
         }
 
         else -> {
+            val effectiveProfile =
+                currentProfile.copy(
+                    isPro =
+                        effectiveIsPro
+                )
+
             fun openWeightCut() {
-                if (!currentProfile.isPro) {
+                if (!effectiveIsPro) {
                     paywallDestination =
                         PaywallDestination
                             .WEIGHT_CUT
 
-                    screen = Screen.PAYWALL
+                    screen =
+                        Screen.PAYWALL
                 } else {
                     screen =
                         if (
@@ -452,15 +519,17 @@ fun CornerstoneApp(
             }
 
             fun openProgressCamera() {
-                if (!currentProfile.isPro) {
+                if (!effectiveIsPro) {
                     paywallDestination =
                         PaywallDestination
                             .PROGRESS_CAMERA
 
-                    screen = Screen.PAYWALL
+                    screen =
+                        Screen.PAYWALL
                 } else {
                     screen =
-                        Screen.PROGRESS_CAMERA
+                        Screen
+                            .PROGRESS_CAMERA
                 }
             }
 
@@ -469,12 +538,14 @@ fun CornerstoneApp(
                     PaywallDestination
                         .DURATION
 
-                screen = Screen.PAYWALL
+                screen =
+                    Screen.PAYWALL
             }
 
             fun finishSessionAndGoHome(
                 sessionType: String,
-                result: SessionCompletionResult
+                result:
+                SessionCompletionResult
             ) {
                 val completedCombos =
                     result.completedCombos
@@ -482,7 +553,9 @@ fun CornerstoneApp(
                             minimumValue = 0,
                             maximumValue =
                                 result.totalCombos
-                                    .coerceAtLeast(0)
+                                    .coerceAtLeast(
+                                        0
+                                    )
                         )
 
                 val activeTrainingSeconds =
@@ -494,8 +567,11 @@ fun CornerstoneApp(
                             completedCombos > 0 &&
                             activeTrainingSeconds > 0
 
-                playlistSessionCombos = null
-                screen = Screen.HOME
+                playlistSessionCombos =
+                    null
+
+                screen =
+                    Screen.HOME
 
                 if (!shouldSaveSession) {
                     Toast.makeText(
@@ -532,7 +608,8 @@ fun CornerstoneApp(
             }
 
             fun finishAiSessionAndGoHome(
-                result: SessionCompletionResult
+                result:
+                SessionCompletionResult
             ) {
                 aiSessionOffset +=
                     result.totalCombos
@@ -545,21 +622,28 @@ fun CornerstoneApp(
             }
 
             fun finishPlaylistSessionAndGoHome(
-                result: SessionCompletionResult
+                result:
+                SessionCompletionResult
             ) {
                 finishSessionAndGoHome(
-                    sessionType = "playlist",
-                    result = result
+                    sessionType =
+                        "playlist",
+                    result =
+                        result
                 )
             }
 
             fun exitSessionAndGoHome() {
-                playlistSessionCombos = null
-                screen = Screen.HOME
+                playlistSessionCombos =
+                    null
+
+                screen =
+                    Screen.HOME
             }
 
             fun saveKickChallengeResult(
-                result: KickChallengeSessionResult
+                result:
+                KickChallengeSessionResult
             ) {
                 val repetitions =
                     result.repetitionCount
@@ -575,7 +659,8 @@ fun CornerstoneApp(
                     activeSeconds <= 0
                 ) {
                     screen =
-                        Screen.CHALLENGE_DETAIL
+                        Screen
+                            .CHALLENGE_DETAIL
 
                     Toast.makeText(
                         context,
@@ -588,7 +673,9 @@ fun CornerstoneApp(
 
                 scope.launch {
                     val sessionType =
-                        when (result.mode) {
+                        when (
+                            result.mode
+                        ) {
                             KickCountingMode
                                 .GUIDED_SOLO -> {
 
@@ -638,7 +725,8 @@ fun CornerstoneApp(
                         .refreshActiveChallenges()
 
                     screen =
-                        Screen.CHALLENGE_DETAIL
+                        Screen
+                            .CHALLENGE_DETAIL
 
                     Toast.makeText(
                         context,
@@ -647,7 +735,7 @@ fun CornerstoneApp(
                         ) {
                             "Kick target completed."
                         } else {
-                            "$repetitions kicks saved."
+                            "$repetitions kicks saved. Complete 100 in one session."
                         },
                         Toast.LENGTH_SHORT
                     ).show()
@@ -658,7 +746,7 @@ fun CornerstoneApp(
                 Screen.HOME -> {
                     HomeScreen(
                         profile =
-                            currentProfile,
+                            effectiveProfile,
                         todaySessionCount =
                             todaySessionCount,
                         todayDurationSeconds =
@@ -732,7 +820,8 @@ fun CornerstoneApp(
                                     .CHALLENGE_DETAIL
                         },
                         onExit = {
-                            screen = Screen.HOME
+                            screen =
+                                Screen.HOME
                         }
                     )
                 }
@@ -748,7 +837,9 @@ fun CornerstoneApp(
                                         selectedChallengeId
                             }
 
-                    if (challenge == null) {
+                    if (
+                        challenge == null
+                    ) {
                         ChallengeLoadingScreen()
                     } else {
                         ChallengeDetailScreen(
@@ -811,7 +902,9 @@ fun CornerstoneApp(
                     }
                 }
 
-                Screen.KICK_CHALLENGE_SESSION -> {
+                Screen
+                    .KICK_CHALLENGE_SESSION -> {
+
                     val challenge =
                         challengeUiState
                             .challenges
@@ -850,21 +943,9 @@ fun CornerstoneApp(
                                 .requiredRepetitionsPerDay
                                 .coerceAtLeast(1)
 
-                        val alreadyValidated =
-                            challenge.progress
-                                ?.totalValidatedRepetitions
-                                ?.coerceAtLeast(0)
-                                ?: 0
-
-                        val remainingRepetitions =
-                            (
-                                    requiredRepetitions -
-                                            alreadyValidated
-                                    ).coerceAtLeast(1)
-
                         KickChallengeSessionScreen(
                             targetRepetitions =
-                                remainingRepetitions,
+                                requiredRepetitions,
                             onSaveResult = {
                                     result ->
 
@@ -881,7 +962,9 @@ fun CornerstoneApp(
                     }
                 }
 
-                Screen.FIGHT_GEAR_DEALS -> {
+                Screen
+                    .FIGHT_GEAR_DEALS -> {
+
                     FightGearDealsScreen(
                         uiState =
                             fightGearUiState,
@@ -982,7 +1065,8 @@ fun CornerstoneApp(
                             }
                         },
                         onExit = {
-                            screen = Screen.HOME
+                            screen =
+                                Screen.HOME
                         },
                         onOpenAnalytics = {
                             screen =
@@ -992,7 +1076,9 @@ fun CornerstoneApp(
                     )
                 }
 
-                Screen.FIGHT_GEAR_ANALYTICS -> {
+                Screen
+                    .FIGHT_GEAR_ANALYTICS -> {
+
                     FightGearAnalyticsScreen(
                         repository =
                             fightGearAnalyticsRepository,
@@ -1024,7 +1110,8 @@ fun CornerstoneApp(
                                     .TECHNIQUE_DETAIL
                         },
                         onExit = {
-                            screen = Screen.HOME
+                            screen =
+                                Screen.HOME
                         }
                     )
                 }
@@ -1045,7 +1132,8 @@ fun CornerstoneApp(
                         repository =
                             comboLibraryRepository,
                         onBack = {
-                            screen = Screen.HOME
+                            screen =
+                                Screen.HOME
                         },
                         onRunPlaylist = {
                                 playlistCombos ->
@@ -1057,17 +1145,17 @@ fun CornerstoneApp(
                             if (
                                 secondsPerCombo <= 0
                             ) {
-                                secondsPerCombo = 30
+                                secondsPerCombo =
+                                    30
                             }
 
-                            if (
-                                !currentProfile.isPro
-                            ) {
+                            if (!effectiveIsPro) {
                                 restSeconds =
                                     FREE_REST_SECONDS
                             }
 
-                            screen = Screen.SESSION
+                            screen =
+                                Screen.SESSION
                         }
                     )
                 }
@@ -1078,7 +1166,8 @@ fun CornerstoneApp(
                                 seconds,
                                 comboCount ->
 
-                            secondsPerCombo = seconds
+                            secondsPerCombo =
+                                seconds
 
                             combosPerSession =
                                 comboCount
@@ -1089,16 +1178,18 @@ fun CornerstoneApp(
                             playlistSessionCombos =
                                 null
 
-                            screen = Screen.SESSION
+                            screen =
+                                Screen.SESSION
                         },
                         onExit = {
                             playlistSessionCombos =
                                 null
 
-                            screen = Screen.HOME
+                            screen =
+                                Screen.HOME
                         },
                         isPro =
-                            currentProfile.isPro,
+                            effectiveIsPro,
                         onUnlockPro = {
                             openRestPaywall()
                         },
@@ -1107,16 +1198,14 @@ fun CornerstoneApp(
                                 comboCount,
                                 selectedRestSeconds ->
 
-                            secondsPerCombo = seconds
+                            secondsPerCombo =
+                                seconds
 
                             combosPerSession =
                                 comboCount
 
                             restSeconds =
-                                if (
-                                    currentProfile
-                                        .isPro
-                                ) {
+                                if (effectiveIsPro) {
                                     selectedRestSeconds
                                         .coerceAtLeast(
                                             1
@@ -1128,7 +1217,8 @@ fun CornerstoneApp(
                             playlistSessionCombos =
                                 null
 
-                            screen = Screen.SESSION
+                            screen =
+                                Screen.SESSION
                         }
                     )
                 }
@@ -1138,9 +1228,7 @@ fun CornerstoneApp(
                         playlistSessionCombos
 
                     val effectiveRestSeconds =
-                        if (
-                            currentProfile.isPro
-                        ) {
+                        if (effectiveIsPro) {
                             restSeconds
                                 .coerceAtLeast(1)
                         } else {
@@ -1158,7 +1246,7 @@ fun CornerstoneApp(
                                 secondsPerCombo,
                             restSeconds =
                                 effectiveRestSeconds,
-                            onFinishSession = { },
+                            onFinishSession = {},
                             onExit = {
                                 exitSessionAndGoHome()
                             },
@@ -1230,7 +1318,7 @@ fun CornerstoneApp(
                                         secondsPerCombo,
                                     restSeconds =
                                         effectiveRestSeconds,
-                                    onFinishSession = { },
+                                    onFinishSession = {},
                                     onExit = {
                                         exitSessionAndGoHome()
                                     },
@@ -1250,7 +1338,8 @@ fun CornerstoneApp(
                 Screen.GLOSSARY -> {
                     GlossaryScreen(
                         onExit = {
-                            screen = Screen.HOME
+                            screen =
+                                Screen.HOME
                         }
                     )
                 }
@@ -1355,14 +1444,16 @@ fun CornerstoneApp(
                             }
                         },
                         onExit = {
-                            screen = Screen.HOME
+                            screen =
+                                Screen.HOME
                         }
                     )
                 }
 
                 Screen.WEIGHT_CUT -> {
                     WeightCutScreen(
-                        status = cutStatus,
+                        status =
+                            cutStatus,
                         entries =
                             weightEntries,
                         useKg =
@@ -1384,7 +1475,8 @@ fun CornerstoneApp(
                             }
                         },
                         onExit = {
-                            screen = Screen.HOME
+                            screen =
+                                Screen.HOME
                         }
                     )
                 }
@@ -1394,7 +1486,8 @@ fun CornerstoneApp(
                         repository =
                             progressPhotoRepository,
                         onExit = {
-                            screen = Screen.HOME
+                            screen =
+                                Screen.HOME
                         }
                     )
                 }
@@ -1406,21 +1499,27 @@ fun CornerstoneApp(
 @Composable
 private fun ChallengeLoadingScreen() {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF161518),
-                        InkBlack
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors =
+                            listOf(
+                                Color(
+                                    0xFF161518
+                                ),
+                                InkBlack
+                            )
                     )
-                )
-            ),
-        contentAlignment = Alignment.Center
+                ),
+        contentAlignment =
+            Alignment.Center
     ) {
         Column(
             horizontalAlignment =
-                Alignment.CenterHorizontally
+                Alignment
+                    .CenterHorizontally
         ) {
             CircularProgressIndicator(
                 color = FightRed
@@ -1428,7 +1527,9 @@ private fun ChallengeLoadingScreen() {
 
             Spacer(
                 modifier =
-                    Modifier.height(18.dp)
+                    Modifier.height(
+                        18.dp
+                    )
             )
 
             Text(
@@ -1449,21 +1550,27 @@ private fun ChallengeLoadingScreen() {
 @Composable
 private fun GeneratingScreen() {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF161518),
-                        InkBlack
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors =
+                            listOf(
+                                Color(
+                                    0xFF161518
+                                ),
+                                InkBlack
+                            )
                     )
-                )
-            ),
-        contentAlignment = Alignment.Center
+                ),
+        contentAlignment =
+            Alignment.Center
     ) {
         Column(
             horizontalAlignment =
-                Alignment.CenterHorizontally,
+                Alignment
+                    .CenterHorizontally,
             verticalArrangement =
                 Arrangement.Center
         ) {
@@ -1473,7 +1580,9 @@ private fun GeneratingScreen() {
 
             Spacer(
                 modifier =
-                    Modifier.height(24.dp)
+                    Modifier.height(
+                        24.dp
+                    )
             )
 
             Text(
@@ -1490,7 +1599,9 @@ private fun GeneratingScreen() {
 
             Spacer(
                 modifier =
-                    Modifier.height(6.dp)
+                    Modifier.height(
+                        6.dp
+                    )
             )
 
             Text(
