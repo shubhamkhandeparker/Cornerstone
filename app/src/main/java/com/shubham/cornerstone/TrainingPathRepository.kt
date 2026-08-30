@@ -1,8 +1,8 @@
 package com.shubham.cornerstone
 
-import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+import kotlinx.coroutines.flow.Flow
 
 private const val MAX_STREAK_GRACE_DAYS = 2
 
@@ -94,9 +94,7 @@ class TrainingPathRepository(
             TrainingPathProgressEntity(
                 sport = safeSport,
                 level =
-                    TrainingPathLevel
-                        .BEGINNER
-                        .name,
+                    firstLesson.level.name,
                 currentChapterId =
                     firstChapter.id,
                 currentLessonId =
@@ -127,10 +125,34 @@ class TrainingPathRepository(
                 sport = sport
             )
 
-        return TrainingCurriculum.getLesson(
-            lessonId =
-                progress.currentLessonId
-        )
+        val lesson =
+            TrainingCurriculum
+                .getLesson(
+                    lessonId =
+                        progress.currentLessonId
+                )
+
+        if (lesson == null) {
+            return null
+        }
+
+        val alreadyCompleted =
+            dao.isLessonCompleted(
+                sport =
+                    progress.sport,
+                lessonId =
+                    lesson.id
+            )
+
+        /*
+         * When the final available lesson has already
+         * been completed, there is no active lesson.
+         */
+        return if (alreadyCompleted) {
+            null
+        } else {
+            lesson
+        }
     }
 
     suspend fun getCurrentChapter(
@@ -142,10 +164,11 @@ class TrainingPathRepository(
                 sport = sport
             )
 
-        return TrainingCurriculum.getChapter(
-            chapterId =
-                progress.currentChapterId
-        )
+        return TrainingCurriculum
+            .getChapter(
+                chapterId =
+                    progress.currentChapterId
+            )
     }
 
     suspend fun completeLesson(
@@ -250,9 +273,8 @@ class TrainingPathRepository(
             )
 
         /*
-         * A fighter can repeat older lessons for practice,
-         * but progression can only be earned from the lesson
-         * that is currently unlocked.
+         * Progression can only be earned from the
+         * fighter's currently unlocked lesson.
          */
         if (
             currentProgress.currentLessonId !=
@@ -295,8 +317,8 @@ class TrainingPathRepository(
             )
 
         /*
-         * Room returns -1 when IGNORE prevented the insert.
-         * This guarantees XP cannot be awarded twice.
+         * IGNORE returns -1 if another completion
+         * already exists for this sport + lesson.
          */
         if (insertedId == -1L) {
             return StructuredLessonCompletionResult
@@ -323,8 +345,27 @@ class TrainingPathRepository(
                     completedChapterLessonCount >=
                     chapter.lessons.size
 
+        /*
+         * Important:
+         *
+         * This searches:
+         *
+         * current lesson
+         *      ↓
+         * next lesson in chapter
+         *      ↓
+         * next chapter
+         *      ↓
+         * next progression level
+         *
+         * Example:
+         *
+         * Beginner Chapter 1
+         * Beginner Chapter 2
+         * Fundamentals Chapter 1
+         */
         val nextLesson =
-            findNextLesson(
+            findNextLessonInPath(
                 lesson = lesson
             )
 
@@ -364,6 +405,22 @@ class TrainingPathRepository(
                         0
                     }
 
+        /*
+         * If another lesson exists, progression moves
+         * completely to that lesson — including its
+         * level and chapter.
+         *
+         * If no lesson exists yet, keep the final stored
+         * IDs. TrainingPathViewModel will recognise that
+         * those IDs point to an already-completed final
+         * lesson and display PATH COMPLETE.
+         */
+        val resolvedLevel =
+            nextLesson
+                ?.level
+                ?.name
+                ?: currentProgress.level
+
         val resolvedNextChapterId =
             nextLesson
                 ?.chapterId
@@ -378,6 +435,8 @@ class TrainingPathRepository(
 
         val updatedProgress =
             currentProgress.copy(
+                level =
+                    resolvedLevel,
                 currentChapterId =
                     resolvedNextChapterId,
                 currentLessonId =
@@ -389,8 +448,7 @@ class TrainingPathRepository(
                 longestStreakDays =
                     newLongestStreak,
                 lastCompletedEpochDay =
-                    completedDate
-                        .toEpochDay(),
+                    completedDate.toEpochDay(),
                 totalLessonsCompleted =
                     newCompletedLessonCount,
                 totalChaptersCompleted =
@@ -402,8 +460,7 @@ class TrainingPathRepository(
             )
 
         dao.saveProgress(
-            progress =
-                updatedProgress
+            progress = updatedProgress
         )
 
         return StructuredLessonCompletionResult
@@ -433,11 +490,26 @@ class TrainingPathRepository(
         )
     }
 
-    private fun findNextLesson(
+    /**
+     * Finds the next lesson across the entire sport path.
+     *
+     * Order:
+     *
+     * BEGINNER
+     * FUNDAMENTALS
+     * DEVELOPING
+     * INTERMEDIATE
+     * ADVANCED
+     */
+    private fun findNextLessonInPath(
         lesson: TrainingLessonDefinition
     ): TrainingLessonDefinition? {
 
-        val lessons =
+        /*
+         * First look for another lesson inside the
+         * current progression level.
+         */
+        val currentLevelLessons =
             TrainingCurriculum
                 .lessonsForSport(
                     sport =
@@ -447,21 +519,68 @@ class TrainingPathRepository(
                 )
 
         val currentIndex =
-            lessons.indexOfFirst { item ->
-                item.id == lesson.id
-            }
+            currentLevelLessons
+                .indexOfFirst {
+                        item ->
+
+                    item.id == lesson.id
+                }
 
         if (
-            currentIndex < 0 ||
-            currentIndex >=
-            lessons.lastIndex
+            currentIndex >= 0 &&
+            currentIndex <
+            currentLevelLessons.lastIndex
         ) {
+            return currentLevelLessons[
+                currentIndex + 1
+            ]
+        }
+
+        /*
+         * Current level ended.
+         *
+         * Search every higher level until we find
+         * the first available lesson.
+         */
+        val currentLevelIndex =
+            TrainingPathLevel
+                .entries
+                .indexOf(
+                    lesson.level
+                )
+
+        if (currentLevelIndex < 0) {
             return null
         }
 
-        return lessons[
-            currentIndex + 1
-        ]
+        val futureLevels =
+            TrainingPathLevel
+                .entries
+                .drop(
+                    currentLevelIndex + 1
+                )
+
+        futureLevels.forEach {
+                futureLevel ->
+
+            val firstFutureLesson =
+                TrainingCurriculum
+                    .lessonsForSport(
+                        sport =
+                            lesson.sport,
+                        level =
+                            futureLevel
+                    )
+                    .firstOrNull()
+
+            if (
+                firstFutureLesson != null
+            ) {
+                return firstFutureLesson
+            }
+        }
+
+        return null
     }
 
     private fun calculateNewStreak(
@@ -493,9 +612,10 @@ class TrainingPathRepository(
             )
 
         return when {
+
             /*
-             * Multiple lessons completed on the same day
-             * do not artificially increase the streak.
+             * Completing multiple lessons today does
+             * not artificially increase the streak.
              */
             daysBetween <= 0L -> {
                 safePreviousStreak
@@ -503,21 +623,15 @@ class TrainingPathRepository(
             }
 
             /*
-             * Trained the very next day.
+             * Trained on the next day.
              */
             daysBetween == 1L -> {
                 safePreviousStreak + 1
             }
 
             /*
-             * Allow up to two missed days without
-             * destroying the fighter's streak.
-             *
-             * Example:
-             * Monday training
-             * Tuesday + Wednesday missed
-             * Thursday training
-             * streak survives.
+             * Up to two complete missed days are
+             * currently allowed as streak grace.
              */
             daysBetween <=
                     MAX_STREAK_GRACE_DAYS + 1L -> {
@@ -526,8 +640,7 @@ class TrainingPathRepository(
             }
 
             /*
-             * More than two full missed days:
-             * start a new streak.
+             * Longer absence starts a fresh streak.
              */
             else -> {
                 1

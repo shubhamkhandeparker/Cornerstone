@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -124,7 +125,8 @@ class MainActivity : ComponentActivity() {
         val fightGearRepository:
                 FightGearRepository =
             RemoteFightGearRepository(
-                api = FightGearApiFactory.api,
+                api =
+                    FightGearApiFactory.api,
                 catalogUrl =
                     FIGHT_GEAR_CATALOG_URL,
                 context =
@@ -204,18 +206,30 @@ class MainActivity : ComponentActivity() {
 
 private enum class Screen {
     HOME,
+    FIGHT_PATH,
+    TRAIN_HUB,
+    PROGRESS_HUB,
+    MORE_HUB,
+
+    CONDITIONING_MODE,
+    CONDITIONING_STANDALONE,
+
     DURATION,
     SESSION,
     LESSON_COMPLETE,
+
     GLOSSARY,
     TECHNIQUES,
     TECHNIQUE_DETAIL,
     PLAYLISTS,
+
     CHALLENGES,
     CHALLENGE_DETAIL,
     KICK_CHALLENGE_SESSION,
+
     FIGHT_GEAR_DEALS,
     FIGHT_GEAR_ANALYTICS,
+
     PAYWALL,
     WEIGHT_SETUP,
     WEIGHT_CUT,
@@ -295,7 +309,8 @@ fun CornerstoneApp(
     val weightEntries by
     weightRepository.entries
         .collectAsStateWithLifecycle(
-            initialValue = emptyList()
+            initialValue =
+                emptyList()
         )
 
     val todaySessionCount by
@@ -362,6 +377,22 @@ fun CornerstoneApp(
         )
     }
 
+    var conditioningPickerBackScreenName by
+    rememberSaveable {
+        mutableStateOf(
+            Screen.HOME.name
+        )
+    }
+
+    var selectedConditioningModeName by
+    rememberSaveable {
+        mutableStateOf(
+            ConditioningMode
+                .TECHNIQUE_PLUS_CONDITIONING
+                .name
+        )
+    }
+
     var paywallDestination by
     rememberSaveable {
         mutableStateOf(
@@ -401,28 +432,36 @@ fun CornerstoneApp(
 
     var lessonCompleteUiData by
     remember {
-        mutableStateOf<TrainingLessonCompleteUiData?>(
+        mutableStateOf<
+                TrainingLessonCompleteUiData?
+                >(
             null
         )
     }
 
     var cutStatus by
     remember {
-        mutableStateOf<CutStatus?>(
+        mutableStateOf<
+                CutStatus?
+                >(
             null
         )
     }
 
     var playlistSessionCombos by
     remember {
-        mutableStateOf<List<Combo>?>(
+        mutableStateOf<
+                List<Combo>?
+                >(
             null
         )
     }
 
     var selectedTechniqueId by
     rememberSaveable {
-        mutableStateOf("jab")
+        mutableStateOf(
+            "jab"
+        )
     }
 
     var selectedChallengeId by
@@ -455,7 +494,8 @@ fun CornerstoneApp(
     LaunchedEffect(
         fightGearRepository
     ) {
-        fightGearRepository.refresh()
+        fightGearRepository
+            .refresh()
     }
 
     LaunchedEffect(
@@ -565,8 +605,24 @@ fun CornerstoneApp(
                         effectiveIsPro
                 )
 
+            fun currentConditioningMode():
+                    ConditioningMode {
+
+                return runCatching {
+                    ConditioningMode
+                        .valueOf(
+                            selectedConditioningModeName
+                        )
+                }.getOrDefault(
+                    ConditioningMode
+                        .TECHNIQUE_PLUS_CONDITIONING
+                )
+            }
+
             fun openWeightCut() {
-                if (!effectiveIsPro) {
+                if (
+                    !effectiveIsPro
+                ) {
                     paywallDestination =
                         PaywallDestination
                             .WEIGHT_CUT
@@ -591,7 +647,9 @@ fun CornerstoneApp(
             }
 
             fun openProgressCamera() {
-                if (!effectiveIsPro) {
+                if (
+                    !effectiveIsPro
+                ) {
                     paywallDestination =
                         PaywallDestination
                             .PROGRESS_CAMERA
@@ -600,8 +658,7 @@ fun CornerstoneApp(
                         Screen.PAYWALL
                 } else {
                     screen =
-                        Screen
-                            .PROGRESS_CAMERA
+                        Screen.PROGRESS_CAMERA
                 }
             }
 
@@ -612,6 +669,16 @@ fun CornerstoneApp(
 
                 screen =
                     Screen.PAYWALL
+            }
+
+            fun clearStructuredSessionState() {
+                activeStructuredLessonId =
+                    null
+
+                selectedConditioningModeName =
+                    ConditioningMode
+                        .TECHNIQUE_PLUS_CONDITIONING
+                        .name
             }
 
             fun finishSessionAndGoHome(
@@ -642,8 +709,7 @@ fun CornerstoneApp(
                 playlistSessionCombos =
                     null
 
-                activeStructuredLessonId =
-                    null
+                clearStructuredSessionState()
 
                 lessonCompleteUiData =
                     null
@@ -651,7 +717,9 @@ fun CornerstoneApp(
                 screen =
                     Screen.HOME
 
-                if (!shouldSaveSession) {
+                if (
+                    !shouldSaveSession
+                ) {
                     Toast.makeText(
                         context,
                         "Session not saved because no active drill was completed.",
@@ -667,8 +735,7 @@ fun CornerstoneApp(
                             sessionType =
                                 sessionType,
                             sport =
-                                currentProfile
-                                    .sport,
+                                currentProfile.sport,
                             comboCount =
                                 completedCombos,
                             secondsPerCombo =
@@ -694,8 +761,10 @@ fun CornerstoneApp(
                         .coerceAtLeast(0)
 
                 finishSessionAndGoHome(
-                    sessionType = "ai",
-                    result = result
+                    sessionType =
+                        "ai",
+                    result =
+                        result
                 )
             }
 
@@ -711,9 +780,80 @@ fun CornerstoneApp(
                 )
             }
 
+            fun finishConditioningOnlyAndGoHome(
+                result:
+                ConditioningWorkoutResult
+            ) {
+                val activeSeconds =
+                    result.activeSeconds
+                        .coerceAtLeast(0)
+
+                val completedBlocks =
+                    result.completedBlocks
+                        .coerceAtLeast(0)
+
+                val shouldSave =
+                    result.genuinelyFinished &&
+                            completedBlocks > 0 &&
+                            activeSeconds > 0
+
+                playlistSessionCombos =
+                    null
+
+                clearStructuredSessionState()
+
+                lessonCompleteUiData =
+                    null
+
+                screen =
+                    Screen.HOME
+
+                if (
+                    !shouldSave
+                ) {
+                    Toast.makeText(
+                        context,
+                        "Conditioning session was not saved.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    return
+                }
+
+                scope.launch {
+                    trainingSessionRepository
+                        .logFinishedSession(
+                            sessionType =
+                                "conditioning_only",
+                            sport =
+                                currentProfile.sport,
+                            comboCount =
+                                0,
+                            secondsPerCombo =
+                                0,
+                            activeTrainingSeconds =
+                                activeSeconds
+                        )
+
+                    userRepository
+                        .incrementSessionsCompleted()
+
+                    challengeProgressEngine
+                        .refreshActiveChallenges()
+
+                    Toast.makeText(
+                        context,
+                        "Conditioning complete.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+
             fun finishStructuredLesson(
                 result:
-                SessionCompletionResult
+                SessionCompletionResult,
+                conditioningActiveSeconds:
+                Int = 0
             ) {
                 val lessonId =
                     activeStructuredLessonId
@@ -724,7 +864,8 @@ fun CornerstoneApp(
 
                         TrainingCurriculum
                             .getLesson(
-                                lessonId = id
+                                lessonId =
+                                    id
                             )
                     }
 
@@ -737,9 +878,17 @@ fun CornerstoneApp(
                                     .coerceAtLeast(0)
                         )
 
-                val activeTrainingSeconds =
+                val techniqueActiveSeconds =
                     result.activeTrainingSeconds
                         .coerceAtLeast(0)
+
+                val safeConditioningSeconds =
+                    conditioningActiveSeconds
+                        .coerceAtLeast(0)
+
+                val totalWorkoutActiveSeconds =
+                    techniqueActiveSeconds +
+                            safeConditioningSeconds
 
                 val skippedCombos =
                     result.skippedCombos
@@ -752,12 +901,9 @@ fun CornerstoneApp(
                                     completedCombos > 0 ||
                                             skippedCombos > 0
                                     ) &&
-                            activeTrainingSeconds > 0
+                            techniqueActiveSeconds > 0
 
                 playlistSessionCombos =
-                    null
-
-                activeStructuredLessonId =
                     null
 
                 lessonCompleteUiData =
@@ -769,6 +915,8 @@ fun CornerstoneApp(
                 if (
                     lesson == null
                 ) {
+                    clearStructuredSessionState()
+
                     Toast.makeText(
                         context,
                         "Lesson could not be found.",
@@ -778,7 +926,11 @@ fun CornerstoneApp(
                     return
                 }
 
-                if (!shouldSaveSession) {
+                if (
+                    !shouldSaveSession
+                ) {
+                    clearStructuredSessionState()
+
                     Toast.makeText(
                         context,
                         "Lesson was not saved because the training was not completed.",
@@ -802,7 +954,7 @@ fun CornerstoneApp(
                                     TrainingPathSessionFactory
                                         .SECONDS_PER_COMBO,
                                 activeTrainingSeconds =
-                                    activeTrainingSeconds
+                                    totalWorkoutActiveSeconds
                             )
 
                     userRepository
@@ -817,12 +969,14 @@ fun CornerstoneApp(
                                 trainingSessionId =
                                     trainingSessionId,
                                 activeTrainingSeconds =
-                                    activeTrainingSeconds,
+                                    techniqueActiveSeconds,
                                 completedCombos =
                                     completedCombos,
                                 skippedCombos =
                                     skippedCombos
                             )
+
+                    clearStructuredSessionState()
 
                     when (
                         completionResult
@@ -863,7 +1017,7 @@ fun CornerstoneApp(
                                         completionResult
                                             .currentStreakDays,
                                     activeTrainingSeconds =
-                                        activeTrainingSeconds,
+                                        totalWorkoutActiveSeconds,
                                     completedCombos =
                                         completedCombos,
                                     chapterCompleted =
@@ -900,8 +1054,7 @@ fun CornerstoneApp(
 
                             Toast.makeText(
                                 context,
-                                completionResult
-                                    .reason,
+                                completionResult.reason,
                                 Toast.LENGTH_LONG
                             ).show()
 
@@ -929,8 +1082,7 @@ fun CornerstoneApp(
                 playlistSessionCombos =
                     null
 
-                activeStructuredLessonId =
-                    null
+                clearStructuredSessionState()
 
                 lessonCompleteUiData =
                     null
@@ -939,8 +1091,10 @@ fun CornerstoneApp(
                     Screen.HOME
             }
 
-            fun startStructuredLesson(
-                lessonId: String? = null
+            fun prepareStructuredLesson(
+                lessonId: String? = null,
+                backScreen:
+                Screen = Screen.HOME
             ) {
                 val lesson =
                     if (
@@ -968,32 +1122,108 @@ fun CornerstoneApp(
                     return
                 }
 
-                val plan =
+                activeStructuredLessonId =
+                    lesson.id
+
+                selectedConditioningModeName =
+                    ConditioningMode
+                        .TECHNIQUE_PLUS_CONDITIONING
+                        .name
+
+                conditioningPickerBackScreenName =
+                    backScreen.name
+
+                playlistSessionCombos =
+                    null
+
+                screen =
+                    Screen.CONDITIONING_MODE
+            }
+
+            fun beginStructuredLesson(
+                mode:
+                ConditioningMode
+            ) {
+                val lesson =
+                    activeStructuredLessonId
+                        ?.let {
+                                lessonId ->
+
+                            TrainingCurriculum
+                                .getLesson(
+                                    lessonId =
+                                        lessonId
+                                )
+                        }
+
+                if (
+                    lesson == null
+                ) {
+                    Toast.makeText(
+                        context,
+                        "Lesson could not be found.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    clearStructuredSessionState()
+
+                    screen =
+                        Screen.HOME
+
+                    return
+                }
+
+                val techniquePlan =
                     TrainingPathSessionFactory
                         .create(
-                            lesson = lesson
+                            lesson =
+                                lesson
                         )
+
+                selectedConditioningModeName =
+                    mode.name
 
                 lessonCompleteUiData =
                     null
-
-                activeStructuredLessonId =
-                    lesson.id
 
                 playlistSessionCombos =
                     null
 
                 secondsPerCombo =
-                    plan.secondsPerCombo
+                    techniquePlan
+                        .secondsPerCombo
 
                 restSeconds =
-                    plan.restSeconds
+                    techniquePlan
+                        .restSeconds
 
                 combosPerSession =
-                    plan.combos.size
+                    techniquePlan
+                        .combos
+                        .size
 
                 screen =
                     Screen.SESSION
+            }
+
+            fun startStandaloneConditioning() {
+                playlistSessionCombos =
+                    null
+
+                activeStructuredLessonId =
+                    null
+
+                lessonCompleteUiData =
+                    null
+
+                selectedConditioningModeName =
+                    ConditioningMode
+                        .CONDITIONING_ONLY
+                        .name
+
+                screen =
+                    Screen
+                        .CONDITIONING_STANDALONE
             }
 
             fun saveKickChallengeResult(
@@ -1050,10 +1280,11 @@ fun CornerstoneApp(
                                 sessionType =
                                     sessionType,
                                 sport =
-                                    currentProfile
-                                        .sport,
-                                comboCount = 0,
-                                secondsPerCombo = 0,
+                                    currentProfile.sport,
+                                comboCount =
+                                    0,
+                                secondsPerCombo =
+                                    0,
                                 activeTrainingSeconds =
                                     activeSeconds
                             )
@@ -1063,8 +1294,7 @@ fun CornerstoneApp(
                             sessionType =
                                 sessionType,
                             sport =
-                                currentProfile
-                                    .sport,
+                                currentProfile.sport,
                             repetitionCount =
                                 repetitions,
                             activeSeconds =
@@ -1097,684 +1327,1117 @@ fun CornerstoneApp(
                 }
             }
 
-            when (screen) {
-                Screen.HOME -> {
-                    HomeScreen(
-                        profile =
-                            effectiveProfile,
-                        todaySessionCount =
-                            todaySessionCount,
-                        todayDurationSeconds =
-                            todayDurationSeconds,
-                        onStartSession = {
-                            activeStructuredLessonId =
-                                null
+            val showBottomNavigation =
+                screen ==
+                        Screen.HOME ||
+                        screen ==
+                        Screen.FIGHT_PATH ||
+                        screen ==
+                        Screen.TRAIN_HUB ||
+                        screen ==
+                        Screen.PROGRESS_HUB ||
+                        screen ==
+                        Screen.MORE_HUB
 
-                            playlistSessionCombos =
-                                null
+            val selectedMainTab =
+                when (
+                    screen
+                ) {
+                    Screen.FIGHT_PATH -> {
+                        CornerstoneMainTab
+                            .FIGHT_PATH
+                    }
 
-                            lessonCompleteUiData =
-                                null
+                    Screen.TRAIN_HUB -> {
+                        CornerstoneMainTab
+                            .TRAIN
+                    }
 
-                            screen =
-                                Screen.DURATION
-                        },
-                        trainingPathState =
-                            trainingPathUiState,
-                        onContinueFightPath = {
-                            startStructuredLesson()
-                        },
-                        onOpenFreeTraining = {
-                            activeStructuredLessonId =
-                                null
+                    Screen.PROGRESS_HUB -> {
+                        CornerstoneMainTab
+                            .PROGRESS
+                    }
 
-                            playlistSessionCombos =
-                                null
+                    Screen.MORE_HUB -> {
+                        CornerstoneMainTab
+                            .MORE
+                    }
 
-                            lessonCompleteUiData =
-                                null
-
-                            screen =
-                                Screen.DURATION
-                        },
-                        onOpenPlaylists = {
-                            activeStructuredLessonId =
-                                null
-
-                            lessonCompleteUiData =
-                                null
-
-                            screen =
-                                Screen.PLAYLISTS
-                        },
-                        onOpenGlossary = {
-                            screen =
-                                Screen.GLOSSARY
-                        },
-                        onOpenTechniques = {
-                            screen =
-                                Screen.TECHNIQUES
-                        },
-                        onOpenWeightCut = {
-                            openWeightCut()
-                        },
-                        onOpenProgressCamera = {
-                            openProgressCamera()
-                        },
-                        onOpenFightGearDeals = {
-                            selectedFightGearCategory =
-                                FightGearCategory.ALL
-
-                            impressedFightGearProductIdsThisVisit
-                                .clear()
-
-                            clickedFightGearProductIdsThisVisit
-                                .clear()
-
-                            screen =
-                                Screen
-                                    .FIGHT_GEAR_DEALS
-                        },
-                        onOpenChallenges = {
-                            selectedChallengeId =
-                                null
-
-                            screen =
-                                Screen.CHALLENGES
-
-                            scope.launch {
-                                challengeProgressEngine
-                                    .refreshActiveChallenges()
-                            }
-                        }
-                    )
+                    else -> {
+                        CornerstoneMainTab
+                            .HOME
+                    }
                 }
 
-                Screen.CHALLENGES -> {
-                    ChallengesScreen(
-                        viewModel =
-                            challengeViewModel,
-                        onOpenChallenge = {
-                                challengeId ->
-
-                            selectedChallengeId =
-                                challengeId
-
-                            screen =
-                                Screen
-                                    .CHALLENGE_DETAIL
-                        },
-                        onExit = {
-                            screen =
-                                Screen.HOME
-                        }
-                    )
-                }
-
-                Screen.CHALLENGE_DETAIL -> {
-                    val challenge =
-                        challengeUiState
-                            .challenges
-                            .firstOrNull {
-                                    item ->
-
-                                item.definition.id ==
-                                        selectedChallengeId
-                            }
-
-                    if (
-                        challenge == null
+            Column(
+                modifier =
+                    Modifier.fillMaxSize()
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                ) {
+                    when (
+                        screen
                     ) {
-                        ChallengeLoadingScreen()
-                    } else {
-                        ChallengeDetailScreen(
-                            challenge =
-                                challenge,
-                            isProcessing =
-                                challengeUiState
-                                    .isProcessing,
-                            onStart = {
-                                challengeViewModel
-                                    .startChallenge(
-                                        challenge
-                                            .definition
-                                            .id
+                        Screen.HOME -> {
+                            HomeScreen(
+                                profile =
+                                    effectiveProfile,
+                                todaySessionCount =
+                                    todaySessionCount,
+                                todayDurationSeconds =
+                                    todayDurationSeconds,
+                                onStartSession = {
+                                    clearStructuredSessionState()
+
+                                    playlistSessionCombos =
+                                        null
+
+                                    lessonCompleteUiData =
+                                        null
+
+                                    screen =
+                                        Screen.DURATION
+                                },
+                                trainingPathState =
+                                    trainingPathUiState,
+                                onContinueFightPath = {
+                                    prepareStructuredLesson(
+                                        backScreen =
+                                            Screen.HOME
                                     )
-                            },
-                            onAbandon = {
-                                challengeViewModel
-                                    .abandonChallenge(
-                                        challenge
-                                            .definition
-                                            .id
-                                    )
-                            },
-                            onRestart = {
-                                challengeViewModel
-                                    .restartChallenge(
-                                        challenge
-                                            .definition
-                                            .id
-                                    )
-                            },
-                            onClaimReward = {
-                                challengeViewModel
-                                    .claimReward(
-                                        challenge
-                                            .definition
-                                            .id
-                                    )
-                            },
-                            onStartKickSession = {
-                                if (
-                                    challenge
-                                        .definition
-                                        .id ==
-                                    ONE_HUNDRED_KICKS_CHALLENGE_ID &&
-                                    challenge.status ==
-                                    ChallengeStatus.ACTIVE
-                                ) {
+                                },
+                                onOpenFightPath = {
+                                    screen =
+                                        Screen.FIGHT_PATH
+                                },
+                                onOpenFreeTraining = {
+                                    clearStructuredSessionState()
+
+                                    playlistSessionCombos =
+                                        null
+
+                                    lessonCompleteUiData =
+                                        null
+
+                                    screen =
+                                        Screen.DURATION
+                                },
+                                onOpenPlaylists = {
+                                    clearStructuredSessionState()
+
+                                    lessonCompleteUiData =
+                                        null
+
+                                    screen =
+                                        Screen.PLAYLISTS
+                                },
+                                onOpenGlossary = {
+                                    screen =
+                                        Screen.GLOSSARY
+                                },
+                                onOpenTechniques = {
+                                    screen =
+                                        Screen.TECHNIQUES
+                                },
+                                onOpenWeightCut = {
+                                    openWeightCut()
+                                },
+                                onOpenProgressCamera = {
+                                    openProgressCamera()
+                                },
+                                onOpenFightGearDeals = {
+                                    selectedFightGearCategory =
+                                        FightGearCategory.ALL
+
+                                    impressedFightGearProductIdsThisVisit
+                                        .clear()
+
+                                    clickedFightGearProductIdsThisVisit
+                                        .clear()
+
                                     screen =
                                         Screen
-                                            .KICK_CHALLENGE_SESSION
-                                }
-                            },
-                            onBack = {
-                                screen =
-                                    Screen.CHALLENGES
-                            }
-                        )
-                    }
-                }
-
-                Screen
-                    .KICK_CHALLENGE_SESSION -> {
-
-                    val challenge =
-                        challengeUiState
-                            .challenges
-                            .firstOrNull {
-                                    item ->
-
-                                item.definition.id ==
-                                        selectedChallengeId
-                            }
-
-                    if (
-                        challenge == null ||
-                        challenge.definition.id !=
-                        ONE_HUNDRED_KICKS_CHALLENGE_ID ||
-                        challenge.status !=
-                        ChallengeStatus.ACTIVE
-                    ) {
-                        ChallengeLoadingScreen()
-
-                        LaunchedEffect(
-                            challenge?.status
-                        ) {
-                            if (
-                                challenge != null &&
-                                challenge.status !=
-                                ChallengeStatus.ACTIVE
-                            ) {
-                                screen =
-                                    Screen
-                                        .CHALLENGE_DETAIL
-                            }
-                        }
-                    } else {
-                        val requiredRepetitions =
-                            challenge.definition
-                                .requiredRepetitionsPerDay
-                                .coerceAtLeast(1)
-
-                        KickChallengeSessionScreen(
-                            targetRepetitions =
-                                requiredRepetitions,
-                            onSaveResult = {
-                                    result ->
-
-                                saveKickChallengeResult(
-                                    result = result
-                                )
-                            },
-                            onExit = {
-                                screen =
-                                    Screen
-                                        .CHALLENGE_DETAIL
-                            }
-                        )
-                    }
-                }
-
-                Screen
-                    .FIGHT_GEAR_DEALS -> {
-
-                    FightGearDealsScreen(
-                        uiState =
-                            fightGearUiState,
-                        selectedCategory =
-                            selectedFightGearCategory,
-                        onCategorySelected = {
-                                category ->
-
-                            selectedFightGearCategory =
-                                category
-                        },
-                        onProductImpression = {
-                                product ->
-
-                            val shouldRecord =
-                                impressedFightGearProductIdsThisVisit
-                                    .add(
-                                        product.id
-                                    )
-
-                            if (shouldRecord) {
-                                scope.launch {
-                                    val savedSuccessfully =
-                                        runCatching {
-                                            fightGearAnalyticsRepository
-                                                .logProductImpression(
-                                                    product =
-                                                        product
-                                                )
-                                        }.isSuccess
-
-                                    if (
-                                        !savedSuccessfully
-                                    ) {
-                                        impressedFightGearProductIdsThisVisit
-                                            .remove(
-                                                product.id
-                                            )
-                                    }
-                                }
-                            }
-                        },
-                        onViewDeal = {
-                                product ->
-
-                            val shouldRecordClick =
-                                clickedFightGearProductIdsThisVisit
-                                    .add(
-                                        product.id
-                                    )
-
-                            scope.launch {
-                                if (
-                                    shouldRecordClick
-                                ) {
-                                    val savedSuccessfully =
-                                        runCatching {
-                                            fightGearAnalyticsRepository
-                                                .logViewDealClick(
-                                                    product =
-                                                        product
-                                                )
-                                        }.isSuccess
-
-                                    if (
-                                        !savedSuccessfully
-                                    ) {
-                                        clickedFightGearProductIdsThisVisit
-                                            .remove(
-                                                product.id
-                                            )
-                                    }
-                                }
-
-                                val opened =
-                                    FightGearLinkOpener
-                                        .open(
-                                            context =
-                                                context,
-                                            productUrl =
-                                                product
-                                                    .productUrl
-                                        )
-
-                                if (!opened) {
-                                    Toast.makeText(
-                                        context,
-                                        "Unable to open the deal link.",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            }
-                        },
-                        onRetry = {
-                            scope.launch {
-                                fightGearRepository
-                                    .refresh()
-                            }
-                        },
-                        onExit = {
-                            screen =
-                                Screen.HOME
-                        },
-                        onOpenAnalytics = {
-                            screen =
-                                Screen
-                                    .FIGHT_GEAR_ANALYTICS
-                        }
-                    )
-                }
-
-                Screen
-                    .FIGHT_GEAR_ANALYTICS -> {
-
-                    FightGearAnalyticsScreen(
-                        repository =
-                            fightGearAnalyticsRepository,
-                        onExit = {
-                            screen =
-                                Screen
-                                    .FIGHT_GEAR_DEALS
-                        },
-                        onAnalyticsReset = {
-                            impressedFightGearProductIdsThisVisit
-                                .clear()
-
-                            clickedFightGearProductIdsThisVisit
-                                .clear()
-                        }
-                    )
-                }
-
-                Screen.TECHNIQUES -> {
-                    TechniquesScreen(
-                        onTechniqueClick = {
-                                techniqueId ->
-
-                            selectedTechniqueId =
-                                techniqueId
-
-                            screen =
-                                Screen
-                                    .TECHNIQUE_DETAIL
-                        },
-                        onExit = {
-                            screen =
-                                Screen.HOME
-                        }
-                    )
-                }
-
-                Screen.TECHNIQUE_DETAIL -> {
-                    TechniqueDetailScreen(
-                        techniqueId =
-                            selectedTechniqueId,
-                        onBack = {
-                            screen =
-                                Screen.TECHNIQUES
-                        }
-                    )
-                }
-
-                Screen.PLAYLISTS -> {
-                    PlaylistsScreen(
-                        repository =
-                            comboLibraryRepository,
-                        onBack = {
-                            screen =
-                                Screen.HOME
-                        },
-                        onRunPlaylist = {
-                                playlistCombos ->
-
-                            activeStructuredLessonId =
-                                null
-
-                            lessonCompleteUiData =
-                                null
-
-                            playlistSessionCombos =
-                                playlistCombos
-                                    .toSessionCombos()
-
-                            if (
-                                secondsPerCombo <= 0
-                            ) {
-                                secondsPerCombo =
-                                    30
-                            }
-
-                            if (!effectiveIsPro) {
-                                restSeconds =
-                                    FREE_REST_SECONDS
-                            }
-
-                            screen =
-                                Screen.SESSION
-                        }
-                    )
-                }
-
-                Screen.DURATION -> {
-                    DurationPickerScreen(
-                        onStart = {
-                                seconds,
-                                comboCount ->
-
-                            activeStructuredLessonId =
-                                null
-
-                            lessonCompleteUiData =
-                                null
-
-                            secondsPerCombo =
-                                seconds
-
-                            combosPerSession =
-                                comboCount
-
-                            restSeconds =
-                                FREE_REST_SECONDS
-
-                            playlistSessionCombos =
-                                null
-
-                            screen =
-                                Screen.SESSION
-                        },
-                        onExit = {
-                            activeStructuredLessonId =
-                                null
-
-                            playlistSessionCombos =
-                                null
-
-                            lessonCompleteUiData =
-                                null
-
-                            screen =
-                                Screen.HOME
-                        },
-                        isPro =
-                            effectiveIsPro,
-                        onUnlockPro = {
-                            openRestPaywall()
-                        },
-                        onStartWithRest = {
-                                seconds,
-                                comboCount,
-                                selectedRestSeconds ->
-
-                            activeStructuredLessonId =
-                                null
-
-                            lessonCompleteUiData =
-                                null
-
-                            secondsPerCombo =
-                                seconds
-
-                            combosPerSession =
-                                comboCount
-
-                            restSeconds =
-                                if (effectiveIsPro) {
-                                    selectedRestSeconds
-                                        .coerceAtLeast(
-                                            1
-                                        )
-                                } else {
-                                    FREE_REST_SECONDS
-                                }
-
-                            playlistSessionCombos =
-                                null
-
-                            screen =
-                                Screen.SESSION
-                        }
-                    )
-                }
-
-                Screen.SESSION -> {
-                    val currentPlaylistSessionCombos =
-                        playlistSessionCombos
-
-                    val structuredLesson =
-                        activeStructuredLessonId
-                            ?.let {
-                                    lessonId ->
-
-                                TrainingCurriculum
-                                    .getLesson(
-                                        lessonId =
-                                            lessonId
-                                    )
-                            }
-
-                    when {
-                        structuredLesson != null -> {
-                            val plan =
-                                TrainingPathSessionFactory
-                                    .create(
-                                        lesson =
-                                            structuredLesson
-                                    )
-
-                            SessionScreen(
-                                combos =
-                                    plan.combos,
-                                secondsPerCombo =
-                                    plan.secondsPerCombo,
-                                restSeconds =
-                                    plan.restSeconds,
-                                onFinishSession = {},
-                                onExit = {
-                                    exitSessionAndGoHome()
+                                            .FIGHT_GEAR_DEALS
                                 },
-                                onSessionResult = {
+                                onOpenChallenges = {
+                                    selectedChallengeId =
+                                        null
+
+                                    screen =
+                                        Screen.CHALLENGES
+
+                                    scope.launch {
+                                        challengeProgressEngine
+                                            .refreshActiveChallenges()
+                                    }
+                                }
+                            )
+                        }
+
+                        Screen.FIGHT_PATH -> {
+                            if (
+                                trainingPathUiState
+                                    .isLoading
+                            ) {
+                                GeneratingScreen()
+                            } else {
+                                FightPathScreen(
+                                    state =
+                                        trainingPathUiState,
+                                    onStartCurrentLesson = {
+                                        prepareStructuredLesson(
+                                            backScreen =
+                                                Screen
+                                                    .FIGHT_PATH
+                                        )
+                                    },
+                                    onBack = {
+                                        screen =
+                                            Screen.HOME
+                                    }
+                                )
+                            }
+                        }
+
+                        Screen.TRAIN_HUB -> {
+                            TrainHubScreen(
+                                sport =
+                                    currentProfile.sport,
+                                trainingPathState =
+                                    trainingPathUiState,
+                                onContinueFightPath = {
+                                    prepareStructuredLesson(
+                                        backScreen =
+                                            Screen.TRAIN_HUB
+                                    )
+                                },
+                                onFreeTraining = {
+                                    clearStructuredSessionState()
+
+                                    playlistSessionCombos =
+                                        null
+
+                                    lessonCompleteUiData =
+                                        null
+
+                                    screen =
+                                        Screen.DURATION
+                                },
+                                onConditioningOnly = {
+                                    startStandaloneConditioning()
+                                },
+                                onOpenPlaylists = {
+                                    clearStructuredSessionState()
+
+                                    lessonCompleteUiData =
+                                        null
+
+                                    screen =
+                                        Screen.PLAYLISTS
+                                }
+                            )
+                        }
+
+                        Screen.PROGRESS_HUB -> {
+                            ProgressHubScreen(
+                                sport =
+                                    currentProfile.sport,
+                                todaySessionCount =
+                                    todaySessionCount,
+                                todayDurationSeconds =
+                                    todayDurationSeconds,
+                                trainingPathState =
+                                    trainingPathUiState
+                            )
+                        }
+
+                        Screen.MORE_HUB -> {
+                            MoreHubScreen(
+                                sport =
+                                    currentProfile.sport,
+                                hasWeightPlan =
+                                    currentProfile
+                                        .targetWeightKg !=
+                                            null &&
+                                            currentProfile
+                                                .fightDateEpochDay !=
+                                            null,
+                                onOpenChallenges = {
+                                    selectedChallengeId =
+                                        null
+
+                                    screen =
+                                        Screen.CHALLENGES
+
+                                    scope.launch {
+                                        challengeProgressEngine
+                                            .refreshActiveChallenges()
+                                    }
+                                },
+                                onOpenTechniques = {
+                                    screen =
+                                        Screen.TECHNIQUES
+                                },
+                                onOpenFightGear = {
+                                    selectedFightGearCategory =
+                                        FightGearCategory.ALL
+
+                                    impressedFightGearProductIdsThisVisit
+                                        .clear()
+
+                                    clickedFightGearProductIdsThisVisit
+                                        .clear()
+
+                                    screen =
+                                        Screen
+                                            .FIGHT_GEAR_DEALS
+                                },
+                                onOpenWeightCut = {
+                                    openWeightCut()
+                                },
+                                onOpenProgressCamera = {
+                                    openProgressCamera()
+                                },
+                                onOpenGlossary = {
+                                    screen =
+                                        Screen.GLOSSARY
+                                }
+                            )
+                        }
+
+                        Screen.CONDITIONING_MODE -> {
+                            val lesson =
+                                activeStructuredLessonId
+                                    ?.let {
+                                            lessonId ->
+
+                                        TrainingCurriculum
+                                            .getLesson(
+                                                lessonId =
+                                                    lessonId
+                                            )
+                                    }
+
+                            if (
+                                lesson == null
+                            ) {
+                                LaunchedEffect(
+                                    Unit
+                                ) {
+                                    clearStructuredSessionState()
+
+                                    screen =
+                                        Screen.HOME
+                                }
+
+                                GeneratingScreen()
+                            } else {
+                                val completedFightPathSessions =
+                                    trainingPathUiState
+                                        .progress
+                                        ?.totalLessonsCompleted
+                                        ?.coerceAtLeast(0)
+                                        ?: 0
+
+                                ConditioningModePickerScreen(
+                                    lessonTitle =
+                                        lesson.title,
+                                    levelName =
+                                        lesson
+                                            .level
+                                            .displayName,
+                                    completedFightPathSessions =
+                                        completedFightPathSessions,
+                                    onSelectMode = {
+                                            mode ->
+
+                                        beginStructuredLesson(
+                                            mode =
+                                                mode
+                                        )
+                                    },
+                                    onBack = {
+                                        val destination =
+                                            runCatching {
+                                                Screen.valueOf(
+                                                    conditioningPickerBackScreenName
+                                                )
+                                            }.getOrDefault(
+                                                Screen.HOME
+                                            )
+
+                                        clearStructuredSessionState()
+
+                                        screen =
+                                            destination
+                                    }
+                                )
+                            }
+                        }
+
+                        Screen.CONDITIONING_STANDALONE -> {
+                            val completedFightPathSessions =
+                                trainingPathUiState
+                                    .progress
+                                    ?.totalLessonsCompleted
+                                    ?.coerceAtLeast(0)
+                                    ?: 0
+
+                            val conditioningPlan =
+                                ConditioningSessionPlanner
+                                    .create(
+                                        mode =
+                                            ConditioningMode
+                                                .CONDITIONING_ONLY,
+                                        completedFightPathSessions =
+                                            completedFightPathSessions,
+                                        sessionSeed =
+                                            completedFightPathSessions *
+                                                    31 +
+                                                    todaySessionCount
+                                    )
+
+                            ConditioningWorkoutScreen(
+                                blocks =
+                                    conditioningPlan
+                                        .allBlocks,
+                                title =
+                                    "Conditioning Only",
+                                onComplete = {
                                         result ->
 
-                                    finishStructuredLesson(
+                                    finishConditioningOnlyAndGoHome(
                                         result =
                                             result
                                     )
-                                }
-                            )
-                        }
-
-                        currentPlaylistSessionCombos !=
-                                null -> {
-
-                            val effectiveRestSeconds =
-                                if (effectiveIsPro) {
-                                    restSeconds
-                                        .coerceAtLeast(1)
-                                } else {
-                                    FREE_REST_SECONDS
-                                }
-
-                            SessionScreen(
-                                combos =
-                                    currentPlaylistSessionCombos,
-                                secondsPerCombo =
-                                    secondsPerCombo,
-                                restSeconds =
-                                    effectiveRestSeconds,
-                                onFinishSession = {},
-                                onExit = {
-                                    exitSessionAndGoHome()
                                 },
-                                onSessionResult = {
-                                        result ->
+                                onExit = {
+                                    clearStructuredSessionState()
 
-                                    finishPlaylistSessionAndGoHome(
-                                        result = result
-                                    )
+                                    screen =
+                                        Screen.TRAIN_HUB
                                 }
                             )
                         }
 
-                        else -> {
-                            val effectiveRestSeconds =
-                                if (effectiveIsPro) {
-                                    restSeconds
-                                        .coerceAtLeast(1)
-                                } else {
-                                    FREE_REST_SECONDS
+                        Screen.CHALLENGES -> {
+                            ChallengesScreen(
+                                viewModel =
+                                    challengeViewModel,
+                                onOpenChallenge = {
+                                        challengeId ->
+
+                                    selectedChallengeId =
+                                        challengeId
+
+                                    screen =
+                                        Screen
+                                            .CHALLENGE_DETAIL
+                                },
+                                onExit = {
+                                    screen =
+                                        Screen.MORE_HUB
                                 }
+                            )
+                        }
 
-                            val sessionVm:
-                                    SessionViewModel =
-                                viewModel(
-                                    key = "session"
-                                )
+                        Screen.CHALLENGE_DETAIL -> {
+                            val challenge =
+                                challengeUiState
+                                    .challenges
+                                    .firstOrNull {
+                                            item ->
 
-                            val state by
-                            sessionVm.state
-                                .collectAsStateWithLifecycle()
+                                        item.definition.id ==
+                                                selectedChallengeId
+                                    }
 
-                            LaunchedEffect(
-                                currentProfile.sport,
-                                currentProfile.level,
-                                currentProfile.dominance,
-                                currentProfile.stance,
-                                combosPerSession,
-                                aiSessionOffset
+                            if (
+                                challenge == null
                             ) {
-                                sessionVm.load(
-                                    sport =
-                                        currentProfile
-                                            .sport,
-                                    level =
-                                        currentProfile
-                                            .level,
-                                    dominance =
-                                        currentProfile
-                                            .dominance,
-                                    stance =
-                                        currentProfile
-                                            .stance,
-                                    count =
-                                        combosPerSession,
-                                    offset =
-                                        aiSessionOffset
+                                ChallengeLoadingScreen()
+                            } else {
+                                ChallengeDetailScreen(
+                                    challenge =
+                                        challenge,
+                                    isProcessing =
+                                        challengeUiState
+                                            .isProcessing,
+                                    onStart = {
+                                        challengeViewModel
+                                            .startChallenge(
+                                                challenge
+                                                    .definition
+                                                    .id
+                                            )
+                                    },
+                                    onAbandon = {
+                                        challengeViewModel
+                                            .abandonChallenge(
+                                                challenge
+                                                    .definition
+                                                    .id
+                                            )
+                                    },
+                                    onRestart = {
+                                        challengeViewModel
+                                            .restartChallenge(
+                                                challenge
+                                                    .definition
+                                                    .id
+                                            )
+                                    },
+                                    onClaimReward = {
+                                        challengeViewModel
+                                            .claimReward(
+                                                challenge
+                                                    .definition
+                                                    .id
+                                            )
+                                    },
+                                    onStartKickSession = {
+                                        if (
+                                            challenge
+                                                .definition
+                                                .id ==
+                                            ONE_HUNDRED_KICKS_CHALLENGE_ID &&
+                                            challenge.status ==
+                                            ChallengeStatus.ACTIVE
+                                        ) {
+                                            screen =
+                                                Screen
+                                                    .KICK_CHALLENGE_SESSION
+                                        }
+                                    },
+                                    onBack = {
+                                        screen =
+                                            Screen.CHALLENGES
+                                    }
                                 )
                             }
+                        }
 
-                            when (
-                                val sessionState =
-                                    state
+                        Screen.KICK_CHALLENGE_SESSION -> {
+                            val challenge =
+                                challengeUiState
+                                    .challenges
+                                    .firstOrNull {
+                                            item ->
+
+                                        item.definition.id ==
+                                                selectedChallengeId
+                                    }
+
+                            if (
+                                challenge == null ||
+                                challenge.definition.id !=
+                                ONE_HUNDRED_KICKS_CHALLENGE_ID ||
+                                challenge.status !=
+                                ChallengeStatus.ACTIVE
                             ) {
-                                is SessionViewModel
-                                .State.Loading -> {
+                                ChallengeLoadingScreen()
 
-                                    GeneratingScreen()
+                                LaunchedEffect(
+                                    challenge?.status
+                                ) {
+                                    if (
+                                        challenge != null &&
+                                        challenge.status !=
+                                        ChallengeStatus.ACTIVE
+                                    ) {
+                                        screen =
+                                            Screen
+                                                .CHALLENGE_DETAIL
+                                    }
+                                }
+                            } else {
+                                val requiredRepetitions =
+                                    challenge.definition
+                                        .requiredRepetitionsPerDay
+                                        .coerceAtLeast(1)
+
+                                KickChallengeSessionScreen(
+                                    targetRepetitions =
+                                        requiredRepetitions,
+                                    onSaveResult = {
+                                            result ->
+
+                                        saveKickChallengeResult(
+                                            result =
+                                                result
+                                        )
+                                    },
+                                    onExit = {
+                                        screen =
+                                            Screen
+                                                .CHALLENGE_DETAIL
+                                    }
+                                )
+                            }
+                        }
+
+                        Screen.FIGHT_GEAR_DEALS -> {
+                            FightGearDealsScreen(
+                                uiState =
+                                    fightGearUiState,
+                                selectedCategory =
+                                    selectedFightGearCategory,
+                                onCategorySelected = {
+                                        category ->
+
+                                    selectedFightGearCategory =
+                                        category
+                                },
+                                onProductImpression = {
+                                        product ->
+
+                                    val shouldRecord =
+                                        impressedFightGearProductIdsThisVisit
+                                            .add(
+                                                product.id
+                                            )
+
+                                    if (
+                                        shouldRecord
+                                    ) {
+                                        scope.launch {
+                                            val savedSuccessfully =
+                                                runCatching {
+                                                    fightGearAnalyticsRepository
+                                                        .logProductImpression(
+                                                            product =
+                                                                product
+                                                        )
+                                                }
+                                                    .isSuccess
+
+                                            if (
+                                                !savedSuccessfully
+                                            ) {
+                                                impressedFightGearProductIdsThisVisit
+                                                    .remove(
+                                                        product.id
+                                                    )
+                                            }
+                                        }
+                                    }
+                                },
+                                onViewDeal = {
+                                        product ->
+
+                                    val shouldRecordClick =
+                                        clickedFightGearProductIdsThisVisit
+                                            .add(
+                                                product.id
+                                            )
+
+                                    scope.launch {
+                                        if (
+                                            shouldRecordClick
+                                        ) {
+                                            val savedSuccessfully =
+                                                runCatching {
+                                                    fightGearAnalyticsRepository
+                                                        .logViewDealClick(
+                                                            product =
+                                                                product
+                                                        )
+                                                }
+                                                    .isSuccess
+
+                                            if (
+                                                !savedSuccessfully
+                                            ) {
+                                                clickedFightGearProductIdsThisVisit
+                                                    .remove(
+                                                        product.id
+                                                    )
+                                            }
+                                        }
+
+                                        val opened =
+                                            FightGearLinkOpener
+                                                .open(
+                                                    context =
+                                                        context,
+                                                    productUrl =
+                                                        product
+                                                            .productUrl
+                                                )
+
+                                        if (
+                                            !opened
+                                        ) {
+                                            Toast.makeText(
+                                                context,
+                                                "Unable to open the deal link.",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    }
+                                },
+                                onRetry = {
+                                    scope.launch {
+                                        fightGearRepository
+                                            .refresh()
+                                    }
+                                },
+                                onExit = {
+                                    screen =
+                                        Screen.MORE_HUB
+                                },
+                                onOpenAnalytics = {
+                                    screen =
+                                        Screen
+                                            .FIGHT_GEAR_ANALYTICS
+                                }
+                            )
+                        }
+
+                        Screen.FIGHT_GEAR_ANALYTICS -> {
+                            FightGearAnalyticsScreen(
+                                repository =
+                                    fightGearAnalyticsRepository,
+                                onExit = {
+                                    screen =
+                                        Screen
+                                            .FIGHT_GEAR_DEALS
+                                },
+                                onAnalyticsReset = {
+                                    impressedFightGearProductIdsThisVisit
+                                        .clear()
+
+                                    clickedFightGearProductIdsThisVisit
+                                        .clear()
+                                }
+                            )
+                        }
+
+                        Screen.TECHNIQUES -> {
+                            TechniquesScreen(
+                                onTechniqueClick = {
+                                        techniqueId ->
+
+                                    selectedTechniqueId =
+                                        techniqueId
+
+                                    screen =
+                                        Screen
+                                            .TECHNIQUE_DETAIL
+                                },
+                                onExit = {
+                                    screen =
+                                        Screen.MORE_HUB
+                                }
+                            )
+                        }
+
+                        Screen.TECHNIQUE_DETAIL -> {
+                            TechniqueDetailScreen(
+                                techniqueId =
+                                    selectedTechniqueId,
+                                onBack = {
+                                    screen =
+                                        Screen.TECHNIQUES
+                                }
+                            )
+                        }
+
+                        Screen.PLAYLISTS -> {
+                            PlaylistsScreen(
+                                repository =
+                                    comboLibraryRepository,
+                                onBack = {
+                                    screen =
+                                        Screen.TRAIN_HUB
+                                },
+                                onRunPlaylist = {
+                                        playlistCombos ->
+
+                                    clearStructuredSessionState()
+
+                                    lessonCompleteUiData =
+                                        null
+
+                                    playlistSessionCombos =
+                                        playlistCombos
+                                            .toSessionCombos()
+
+                                    if (
+                                        secondsPerCombo <=
+                                        0
+                                    ) {
+                                        secondsPerCombo =
+                                            30
+                                    }
+
+                                    if (
+                                        !effectiveIsPro
+                                    ) {
+                                        restSeconds =
+                                            FREE_REST_SECONDS
+                                    }
+
+                                    screen =
+                                        Screen.SESSION
+                                }
+                            )
+                        }
+
+                        Screen.DURATION -> {
+                            DurationPickerScreen(
+                                onStart = {
+                                        seconds,
+                                        comboCount ->
+
+                                    clearStructuredSessionState()
+
+                                    lessonCompleteUiData =
+                                        null
+
+                                    secondsPerCombo =
+                                        seconds
+
+                                    combosPerSession =
+                                        comboCount
+
+                                    restSeconds =
+                                        FREE_REST_SECONDS
+
+                                    playlistSessionCombos =
+                                        null
+
+                                    screen =
+                                        Screen.SESSION
+                                },
+                                onExit = {
+                                    clearStructuredSessionState()
+
+                                    playlistSessionCombos =
+                                        null
+
+                                    lessonCompleteUiData =
+                                        null
+
+                                    screen =
+                                        Screen.TRAIN_HUB
+                                },
+                                isPro =
+                                    effectiveIsPro,
+                                onUnlockPro = {
+                                    openRestPaywall()
+                                },
+                                onStartWithRest = {
+                                        seconds,
+                                        comboCount,
+                                        selectedRestSeconds ->
+
+                                    clearStructuredSessionState()
+
+                                    lessonCompleteUiData =
+                                        null
+
+                                    secondsPerCombo =
+                                        seconds
+
+                                    combosPerSession =
+                                        comboCount
+
+                                    restSeconds =
+                                        if (
+                                            effectiveIsPro
+                                        ) {
+                                            selectedRestSeconds
+                                                .coerceAtLeast(
+                                                    1
+                                                )
+                                        } else {
+                                            FREE_REST_SECONDS
+                                        }
+
+                                    playlistSessionCombos =
+                                        null
+
+                                    screen =
+                                        Screen.SESSION
+                                }
+                            )
+                        }
+
+                        Screen.SESSION -> {
+                            val currentPlaylistSessionCombos =
+                                playlistSessionCombos
+
+                            val structuredLesson =
+                                activeStructuredLessonId
+                                    ?.let {
+                                            lessonId ->
+
+                                        TrainingCurriculum
+                                            .getLesson(
+                                                lessonId =
+                                                    lessonId
+                                            )
+                                    }
+
+                            when {
+                                structuredLesson !=
+                                        null -> {
+
+                                    val techniquePlan =
+                                        TrainingPathSessionFactory
+                                            .create(
+                                                lesson =
+                                                    structuredLesson
+                                            )
+
+                                    val structuredChapter =
+                                        TrainingCurriculum
+                                            .getChapter(
+                                                chapterId =
+                                                    structuredLesson
+                                                        .chapterId
+                                            )
+
+                                    val levelLessons =
+                                        TrainingCurriculum
+                                            .lessonsForSport(
+                                                sport =
+                                                    structuredLesson
+                                                        .sport,
+                                                level =
+                                                    structuredLesson
+                                                        .level
+                                            )
+
+                                    val levelSessionNumber =
+                                        (
+                                                levelLessons
+                                                    .indexOfFirst {
+                                                            lesson ->
+
+                                                        lesson.id ==
+                                                                structuredLesson
+                                                                    .id
+                                                    } + 1
+                                                )
+                                            .coerceAtLeast(
+                                                1
+                                            )
+
+                                    val levelSessionTotal =
+                                        levelLessons
+                                            .size
+                                            .coerceAtLeast(
+                                                1
+                                            )
+
+                                    val chapterLessons =
+                                        structuredChapter
+                                            ?.lessons
+                                            ?.sortedBy {
+                                                    lesson ->
+
+                                                lesson
+                                                    .orderInChapter
+                                            }
+                                            .orEmpty()
+
+                                    val chapterSessionNumber =
+                                        (
+                                                chapterLessons
+                                                    .indexOfFirst {
+                                                            lesson ->
+
+                                                        lesson.id ==
+                                                                structuredLesson
+                                                                    .id
+                                                    } + 1
+                                                )
+                                            .coerceAtLeast(
+                                                1
+                                            )
+
+                                    val chapterSessionTotal =
+                                        chapterLessons
+                                            .size
+                                            .coerceAtLeast(
+                                                1
+                                            )
+
+                                    val fightPathInfo =
+                                        FightPathSessionInfo(
+                                            levelName =
+                                                structuredLesson
+                                                    .level
+                                                    .displayName,
+                                            levelSessionNumber =
+                                                levelSessionNumber,
+                                            levelSessionTotal =
+                                                levelSessionTotal,
+                                            chapterTitle =
+                                                structuredChapter
+                                                    ?.title
+                                                    ?: "Fight Path",
+                                            chapterSessionNumber =
+                                                chapterSessionNumber,
+                                            chapterSessionTotal =
+                                                chapterSessionTotal,
+                                            sessionTitle =
+                                                structuredLesson
+                                                    .title
+                                        )
+
+                                    val completedFightPathSessions =
+                                        trainingPathUiState
+                                            .progress
+                                            ?.totalLessonsCompleted
+                                            ?.coerceAtLeast(
+                                                0
+                                            )
+                                            ?: 0
+
+                                    val conditioningMode =
+                                        currentConditioningMode()
+
+                                    val conditioningPlan =
+                                        ConditioningSessionPlanner
+                                            .create(
+                                                mode =
+                                                    conditioningMode,
+                                                completedFightPathSessions =
+                                                    completedFightPathSessions,
+                                                sessionSeed =
+                                                    completedFightPathSessions *
+                                                            31 +
+                                                            structuredLesson
+                                                                .orderInChapter
+                                            )
+
+                                    when (
+                                        conditioningMode
+                                    ) {
+                                        ConditioningMode
+                                            .TECHNIQUE_ONLY -> {
+
+                                            SessionScreen(
+                                                combos =
+                                                    techniquePlan
+                                                        .combos,
+                                                secondsPerCombo =
+                                                    techniquePlan
+                                                        .secondsPerCombo,
+                                                restSeconds =
+                                                    techniquePlan
+                                                        .restSeconds,
+                                                onFinishSession = {},
+                                                onExit = {
+                                                    exitSessionAndGoHome()
+                                                },
+                                                onSessionResult = {
+                                                        result ->
+
+                                                    finishStructuredLesson(
+                                                        result =
+                                                            result
+                                                    )
+                                                },
+                                                fightPathInfo =
+                                                    fightPathInfo
+                                            )
+                                        }
+
+                                        ConditioningMode
+                                            .TECHNIQUE_PLUS_CONDITIONING -> {
+
+                                            val mixedPlan =
+                                                FightPathMixedSessionPlanner
+                                                    .create(
+                                                        mode =
+                                                            conditioningMode,
+                                                        techniqueCombos =
+                                                            techniquePlan
+                                                                .combos,
+                                                        conditioningPlan =
+                                                            conditioningPlan
+                                                    )
+
+                                            FightPathMixedSessionScreen(
+                                                plan =
+                                                    mixedPlan,
+                                                techniqueSecondsPerCombo =
+                                                    techniquePlan
+                                                        .secondsPerCombo,
+                                                techniqueRestSeconds =
+                                                    techniquePlan
+                                                        .restSeconds,
+                                                fightPathInfo =
+                                                    fightPathInfo,
+                                                onComplete = {
+                                                        result ->
+
+                                                    finishStructuredLesson(
+                                                        result =
+                                                            result
+                                                                .techniqueResult,
+                                                        conditioningActiveSeconds =
+                                                            result
+                                                                .conditioningActiveSeconds
+                                                    )
+                                                },
+                                                onExit = {
+                                                    exitSessionAndGoHome()
+                                                }
+                                            )
+                                        }
+
+                                        ConditioningMode
+                                            .CONDITIONING_ONLY -> {
+
+                                            ConditioningWorkoutScreen(
+                                                blocks =
+                                                    conditioningPlan
+                                                        .allBlocks,
+                                                title =
+                                                    "Conditioning Only",
+                                                onComplete = {
+                                                        result ->
+
+                                                    finishConditioningOnlyAndGoHome(
+                                                        result =
+                                                            result
+                                                    )
+                                                },
+                                                onExit = {
+                                                    exitSessionAndGoHome()
+                                                }
+                                            )
+                                        }
+                                    }
                                 }
 
-                                is SessionViewModel
-                                .State.Ready -> {
+                                currentPlaylistSessionCombos !=
+                                        null -> {
+
+                                    val effectiveRestSeconds =
+                                        if (
+                                            effectiveIsPro
+                                        ) {
+                                            restSeconds
+                                                .coerceAtLeast(
+                                                    1
+                                                )
+                                        } else {
+                                            FREE_REST_SECONDS
+                                        }
 
                                     SessionScreen(
                                         combos =
-                                            sessionState
-                                                .combos,
+                                            currentPlaylistSessionCombos,
                                         secondsPerCombo =
                                             secondsPerCombo,
                                         restSeconds =
@@ -1786,235 +2449,379 @@ fun CornerstoneApp(
                                         onSessionResult = {
                                                 result ->
 
-                                            finishAiSessionAndGoHome(
+                                            finishPlaylistSessionAndGoHome(
                                                 result =
                                                     result
                                             )
                                         }
                                     )
                                 }
+
+                                else -> {
+                                    val effectiveRestSeconds =
+                                        if (
+                                            effectiveIsPro
+                                        ) {
+                                            restSeconds
+                                                .coerceAtLeast(
+                                                    1
+                                                )
+                                        } else {
+                                            FREE_REST_SECONDS
+                                        }
+
+                                    val sessionVm:
+                                            SessionViewModel =
+                                        viewModel(
+                                            key =
+                                                "session"
+                                        )
+
+                                    val state by
+                                    sessionVm.state
+                                        .collectAsStateWithLifecycle()
+
+                                    LaunchedEffect(
+                                        currentProfile.sport,
+                                        currentProfile.level,
+                                        currentProfile.dominance,
+                                        currentProfile.stance,
+                                        combosPerSession,
+                                        aiSessionOffset
+                                    ) {
+                                        sessionVm.load(
+                                            sport =
+                                                currentProfile.sport,
+                                            level =
+                                                currentProfile.level,
+                                            dominance =
+                                                currentProfile.dominance,
+                                            stance =
+                                                currentProfile.stance,
+                                            count =
+                                                combosPerSession,
+                                            offset =
+                                                aiSessionOffset
+                                        )
+                                    }
+
+                                    when (
+                                        val sessionState =
+                                            state
+                                    ) {
+                                        is SessionViewModel
+                                        .State.Loading -> {
+
+                                            GeneratingScreen()
+                                        }
+
+                                        is SessionViewModel
+                                        .State.Ready -> {
+
+                                            SessionScreen(
+                                                combos =
+                                                    sessionState
+                                                        .combos,
+                                                secondsPerCombo =
+                                                    secondsPerCombo,
+                                                restSeconds =
+                                                    effectiveRestSeconds,
+                                                onFinishSession = {},
+                                                onExit = {
+                                                    exitSessionAndGoHome()
+                                                },
+                                                onSessionResult = {
+                                                        result ->
+
+                                                    finishAiSessionAndGoHome(
+                                                        result =
+                                                            result
+                                                    )
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
-                    }
-                }
 
-                Screen.LESSON_COMPLETE -> {
-                    val summary =
-                        lessonCompleteUiData
+                        Screen.LESSON_COMPLETE -> {
+                            val summary =
+                                lessonCompleteUiData
 
-                    if (
-                        summary == null
-                    ) {
-                        LaunchedEffect(Unit) {
-                            screen =
-                                Screen.HOME
-                        }
-
-                        GeneratingScreen()
-                    } else {
-                        TrainingLessonCompleteScreen(
-                            lessonTitle =
-                                summary.lessonTitle,
-                            chapterTitle =
-                                summary.chapterTitle,
-                            xpAwarded =
-                                summary.xpAwarded,
-                            totalXp =
-                                summary.totalXp,
-                            streakDays =
-                                summary.streakDays,
-                            activeTrainingSeconds =
-                                summary.activeTrainingSeconds,
-                            completedCombos =
-                                summary.completedCombos,
-                            chapterCompleted =
-                                summary.chapterCompleted,
-                            nextLessonTitle =
-                                summary.nextLessonTitle,
-                            onContinue = {
-                                val nextId =
-                                    summary
-                                        .nextLessonId
-
-                                if (
-                                    nextId != null
+                            if (
+                                summary == null
+                            ) {
+                                LaunchedEffect(
+                                    Unit
                                 ) {
-                                    startStructuredLesson(
-                                        lessonId =
-                                            nextId
-                                    )
-                                } else {
-                                    lessonCompleteUiData =
-                                        null
-
                                     screen =
                                         Screen.HOME
                                 }
-                            },
-                            onHome = {
-                                lessonCompleteUiData =
-                                    null
 
-                                screen =
-                                    Screen.HOME
+                                GeneratingScreen()
+                            } else {
+                                TrainingLessonCompleteScreen(
+                                    lessonTitle =
+                                        summary.lessonTitle,
+                                    chapterTitle =
+                                        summary.chapterTitle,
+                                    xpAwarded =
+                                        summary.xpAwarded,
+                                    totalXp =
+                                        summary.totalXp,
+                                    streakDays =
+                                        summary.streakDays,
+                                    activeTrainingSeconds =
+                                        summary.activeTrainingSeconds,
+                                    completedCombos =
+                                        summary.completedCombos,
+                                    chapterCompleted =
+                                        summary.chapterCompleted,
+                                    nextLessonTitle =
+                                        summary.nextLessonTitle,
+                                    onContinue = {
+                                        val nextId =
+                                            summary
+                                                .nextLessonId
+
+                                        if (
+                                            nextId !=
+                                            null
+                                        ) {
+                                            prepareStructuredLesson(
+                                                lessonId =
+                                                    nextId,
+                                                backScreen =
+                                                    Screen
+                                                        .LESSON_COMPLETE
+                                            )
+                                        } else {
+                                            lessonCompleteUiData =
+                                                null
+
+                                            screen =
+                                                Screen.HOME
+                                        }
+                                    },
+                                    onHome = {
+                                        lessonCompleteUiData =
+                                            null
+
+                                        screen =
+                                            Screen.HOME
+                                    }
+                                )
                             }
-                        )
+                        }
+
+                        Screen.GLOSSARY -> {
+                            GlossaryScreen(
+                                onExit = {
+                                    screen =
+                                        Screen.MORE_HUB
+                                }
+                            )
+                        }
+
+                        Screen.PAYWALL -> {
+                            PaywallScreen(
+                                onProEntitled = {
+                                    scope.launch {
+                                        userRepository
+                                            .setPro(
+                                                true
+                                            )
+
+                                        screen =
+                                            when (
+                                                paywallDestination
+                                            ) {
+                                                PaywallDestination
+                                                    .DURATION -> {
+
+                                                    Screen.DURATION
+                                                }
+
+                                                PaywallDestination
+                                                    .PROGRESS_CAMERA -> {
+
+                                                    Screen
+                                                        .PROGRESS_CAMERA
+                                                }
+
+                                                PaywallDestination
+                                                    .WEIGHT_CUT -> {
+
+                                                    if (
+                                                        currentProfile
+                                                            .targetWeightKg !=
+                                                        null &&
+                                                        currentProfile
+                                                            .fightDateEpochDay !=
+                                                        null
+                                                    ) {
+                                                        Screen
+                                                            .WEIGHT_CUT
+                                                    } else {
+                                                        Screen
+                                                            .WEIGHT_SETUP
+                                                    }
+                                                }
+                                            }
+                                    }
+                                },
+                                onExit = {
+                                    screen =
+                                        when (
+                                            paywallDestination
+                                        ) {
+                                            PaywallDestination
+                                                .DURATION -> {
+
+                                                Screen
+                                                    .TRAIN_HUB
+                                            }
+
+                                            PaywallDestination
+                                                .PROGRESS_CAMERA,
+                                            PaywallDestination
+                                                .WEIGHT_CUT -> {
+
+                                                Screen
+                                                    .MORE_HUB
+                                            }
+                                        }
+                                }
+                            )
+                        }
+
+                        Screen.WEIGHT_SETUP -> {
+                            WeightSetupScreen(
+                                onSave = {
+                                        targetKg,
+                                        fightInDays,
+                                        useKg ->
+
+                                    scope.launch {
+                                        weightRepository
+                                            .setPlan(
+                                                targetKg =
+                                                    targetKg,
+                                                fightDate =
+                                                    LocalDate
+                                                        .now()
+                                                        .plusDays(
+                                                            fightInDays
+                                                                .toLong()
+                                                        ),
+                                                useKg =
+                                                    useKg
+                                            )
+
+                                        cutStatus =
+                                            weightRepository
+                                                .computeStatus()
+
+                                        screen =
+                                            Screen
+                                                .WEIGHT_CUT
+                                    }
+                                },
+                                onExit = {
+                                    screen =
+                                        Screen.MORE_HUB
+                                }
+                            )
+                        }
+
+                        Screen.WEIGHT_CUT -> {
+                            WeightCutScreen(
+                                status =
+                                    cutStatus,
+                                entries =
+                                    weightEntries,
+                                useKg =
+                                    currentProfile
+                                        .weightUnit ==
+                                            "kg",
+                                onLogWeight = {
+                                        weightKg ->
+
+                                    scope.launch {
+                                        weightRepository
+                                            .logWeight(
+                                                weightKg
+                                            )
+
+                                        cutStatus =
+                                            weightRepository
+                                                .computeStatus()
+                                    }
+                                },
+                                onExit = {
+                                    screen =
+                                        Screen.MORE_HUB
+                                }
+                            )
+                        }
+
+                        Screen.PROGRESS_CAMERA -> {
+                            ProgressCameraScreen(
+                                repository =
+                                    progressPhotoRepository,
+                                onExit = {
+                                    screen =
+                                        Screen.MORE_HUB
+                                }
+                            )
+                        }
                     }
                 }
 
-                Screen.GLOSSARY -> {
-                    GlossaryScreen(
-                        onExit = {
-                            screen =
-                                Screen.HOME
-                        }
-                    )
-                }
+                if (
+                    showBottomNavigation
+                ) {
+                    CornerstoneBottomBar(
+                        selectedTab =
+                            selectedMainTab,
+                        onTabSelected = {
+                                tab ->
 
-                Screen.PAYWALL -> {
-                    PaywallScreen(
-                        onProEntitled = {
-                            scope.launch {
-                                userRepository
-                                    .setPro(true)
-
-                                screen =
-                                    when (
-                                        paywallDestination
-                                    ) {
-                                        PaywallDestination
-                                            .DURATION -> {
-
-                                            Screen.DURATION
-                                        }
-
-                                        PaywallDestination
-                                            .PROGRESS_CAMERA -> {
-
-                                            Screen
-                                                .PROGRESS_CAMERA
-                                        }
-
-                                        PaywallDestination
-                                            .WEIGHT_CUT -> {
-
-                                            if (
-                                                currentProfile
-                                                    .targetWeightKg !=
-                                                null &&
-                                                currentProfile
-                                                    .fightDateEpochDay !=
-                                                null
-                                            ) {
-                                                Screen
-                                                    .WEIGHT_CUT
-                                            } else {
-                                                Screen
-                                                    .WEIGHT_SETUP
-                                            }
-                                        }
-                                    }
-                            }
-                        },
-                        onExit = {
                             screen =
                                 when (
-                                    paywallDestination
+                                    tab
                                 ) {
-                                    PaywallDestination
-                                        .DURATION -> {
-
-                                        Screen.DURATION
-                                    }
-
-                                    PaywallDestination
-                                        .PROGRESS_CAMERA,
-                                    PaywallDestination
-                                        .WEIGHT_CUT -> {
+                                    CornerstoneMainTab
+                                        .HOME -> {
 
                                         Screen.HOME
                                     }
+
+                                    CornerstoneMainTab
+                                        .FIGHT_PATH -> {
+
+                                        Screen.FIGHT_PATH
+                                    }
+
+                                    CornerstoneMainTab
+                                        .TRAIN -> {
+
+                                        Screen.TRAIN_HUB
+                                    }
+
+                                    CornerstoneMainTab
+                                        .PROGRESS -> {
+
+                                        Screen.PROGRESS_HUB
+                                    }
+
+                                    CornerstoneMainTab
+                                        .MORE -> {
+
+                                        Screen.MORE_HUB
+                                    }
                                 }
-                        }
-                    )
-                }
-
-                Screen.WEIGHT_SETUP -> {
-                    WeightSetupScreen(
-                        onSave = {
-                                targetKg,
-                                fightInDays,
-                                useKg ->
-
-                            scope.launch {
-                                weightRepository
-                                    .setPlan(
-                                        targetKg =
-                                            targetKg,
-                                        fightDate =
-                                            LocalDate
-                                                .now()
-                                                .plusDays(
-                                                    fightInDays
-                                                        .toLong()
-                                                ),
-                                        useKg =
-                                            useKg
-                                    )
-
-                                cutStatus =
-                                    weightRepository
-                                        .computeStatus()
-
-                                screen =
-                                    Screen.WEIGHT_CUT
-                            }
-                        },
-                        onExit = {
-                            screen =
-                                Screen.HOME
-                        }
-                    )
-                }
-
-                Screen.WEIGHT_CUT -> {
-                    WeightCutScreen(
-                        status =
-                            cutStatus,
-                        entries =
-                            weightEntries,
-                        useKg =
-                            currentProfile
-                                .weightUnit ==
-                                    "kg",
-                        onLogWeight = {
-                                weightKg ->
-
-                            scope.launch {
-                                weightRepository
-                                    .logWeight(
-                                        weightKg
-                                    )
-
-                                cutStatus =
-                                    weightRepository
-                                        .computeStatus()
-                            }
-                        },
-                        onExit = {
-                            screen =
-                                Screen.HOME
-                        }
-                    )
-                }
-
-                Screen.PROGRESS_CAMERA -> {
-                    ProgressCameraScreen(
-                        repository =
-                            progressPhotoRepository,
-                        onExit = {
-                            screen =
-                                Screen.HOME
                         }
                     )
                 }
@@ -2045,11 +2852,11 @@ private fun ChallengeLoadingScreen() {
     ) {
         Column(
             horizontalAlignment =
-                Alignment
-                    .CenterHorizontally
+                Alignment.CenterHorizontally
         ) {
             CircularProgressIndicator(
-                color = FightRed
+                color =
+                    FightRed
             )
 
             Spacer(
@@ -2062,7 +2869,8 @@ private fun ChallengeLoadingScreen() {
             Text(
                 text =
                     "Loading challenge...",
-                fontSize = 15.sp,
+                fontSize =
+                    15.sp,
                 fontWeight =
                     FontWeight.Bold,
                 color =
@@ -2096,13 +2904,13 @@ private fun GeneratingScreen() {
     ) {
         Column(
             horizontalAlignment =
-                Alignment
-                    .CenterHorizontally,
+                Alignment.CenterHorizontally,
             verticalArrangement =
                 Arrangement.Center
         ) {
             CircularProgressIndicator(
-                color = FightRed
+                color =
+                    FightRed
             )
 
             Spacer(
@@ -2115,7 +2923,8 @@ private fun GeneratingScreen() {
             Text(
                 text =
                     "Building tonight's session...",
-                fontSize = 16.sp,
+                fontSize =
+                    16.sp,
                 fontWeight =
                     FontWeight.Bold,
                 color =
@@ -2134,7 +2943,8 @@ private fun GeneratingScreen() {
             Text(
                 text =
                     "Adapting to your level",
-                fontSize = 13.sp,
+                fontSize =
+                    13.sp,
                 color =
                     MaterialTheme
                         .colorScheme
