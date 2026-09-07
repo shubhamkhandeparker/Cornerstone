@@ -73,7 +73,10 @@ class TrainingPathRepository(
             )
 
         if (existing != null) {
-            return existing
+            return repairProgressIfNeeded(
+                progress = existing,
+                sport = safeSport
+            )
         }
 
         val firstChapter =
@@ -114,6 +117,174 @@ class TrainingPathRepository(
         )
 
         return progress
+    }
+
+    /**
+     * Repairs progress created by an older curriculum.
+     *
+     * For example, the original Kickboxing prototype used:
+     *
+     * kickboxing_beginner_hands_1
+     *
+     * The complete Kickboxing curriculum now starts with:
+     *
+     * kickboxing_beginner_base_1
+     *
+     * If an old lesson or chapter no longer exists, the
+     * repository finds the first incomplete lesson in the
+     * current curriculum and safely moves progression there.
+     *
+     * XP, streaks, totals and valid lesson completions remain
+     * untouched. Progress also remains separate for each sport.
+     */
+    private suspend fun repairProgressIfNeeded(
+        progress: TrainingPathProgressEntity,
+        sport: String
+    ): TrainingPathProgressEntity {
+
+        val storedLesson =
+            TrainingCurriculum.getLesson(
+                lessonId =
+                    progress.currentLessonId
+            )
+
+        val storedChapter =
+            TrainingCurriculum.getChapter(
+                chapterId =
+                    progress.currentChapterId
+            )
+
+        val storedLocationIsValid =
+            storedLesson != null &&
+                    storedChapter != null &&
+                    storedLesson.sport.equals(
+                        sport,
+                        ignoreCase = true
+                    ) &&
+                    storedChapter.sport.equals(
+                        sport,
+                        ignoreCase = true
+                    ) &&
+                    storedLesson.chapterId ==
+                    storedChapter.id &&
+                    storedLesson.level.name ==
+                    progress.level
+
+        val storedLessonIsCompleted =
+            if (
+                storedLocationIsValid &&
+                storedLesson != null
+            ) {
+                dao.isLessonCompleted(
+                    sport = sport,
+                    lessonId =
+                        storedLesson.id
+                )
+            } else {
+                false
+            }
+
+        val resolvedLesson =
+            when {
+                storedLocationIsValid &&
+                        !storedLessonIsCompleted -> {
+
+                    storedLesson
+                }
+
+                else -> {
+                    findFirstIncompleteLesson(
+                        sport = sport
+                    ) ?: allLessonsForSport(
+                        sport = sport
+                    ).lastOrNull()
+                }
+            } ?: error(
+                "No lessons exist for $sport."
+            )
+
+        val resolvedChapter =
+            TrainingCurriculum.getChapter(
+                chapterId =
+                    resolvedLesson.chapterId
+            ) ?: error(
+                "Chapter ${resolvedLesson.chapterId} could not be found."
+            )
+
+        val needsRepair =
+            progress.level !=
+                    resolvedLesson.level.name ||
+                    progress.currentChapterId !=
+                    resolvedChapter.id ||
+                    progress.currentLessonId !=
+                    resolvedLesson.id ||
+                    progress.curriculumVersion !=
+                    TrainingCurriculum.VERSION
+
+        if (!needsRepair) {
+            return progress
+        }
+
+        val repairedProgress =
+            progress.copy(
+                level =
+                    resolvedLesson.level.name,
+                currentChapterId =
+                    resolvedChapter.id,
+                currentLessonId =
+                    resolvedLesson.id,
+                curriculumVersion =
+                    TrainingCurriculum.VERSION,
+                updatedAtEpochMs =
+                    System.currentTimeMillis()
+            )
+
+        dao.saveProgress(
+            progress = repairedProgress
+        )
+
+        return repairedProgress
+    }
+
+    private fun allLessonsForSport(
+        sport: String
+    ): List<TrainingLessonDefinition> {
+
+        return TrainingPathLevel
+            .entries
+            .flatMap {
+                    level ->
+
+                TrainingCurriculum
+                    .lessonsForSport(
+                        sport = sport,
+                        level = level
+                    )
+            }
+    }
+
+    private suspend fun findFirstIncompleteLesson(
+        sport: String
+    ): TrainingLessonDefinition? {
+
+        val lessons =
+            allLessonsForSport(
+                sport = sport
+            )
+
+        for (lesson in lessons) {
+            val completed =
+                dao.isLessonCompleted(
+                    sport = sport,
+                    lessonId = lesson.id
+                )
+
+            if (!completed) {
+                return lesson
+            }
+        }
+
+        return null
     }
 
     suspend fun getCurrentLesson(
@@ -346,8 +517,6 @@ class TrainingPathRepository(
                     chapter.lessons.size
 
         /*
-         * Important:
-         *
          * This searches:
          *
          * current lesson
@@ -357,12 +526,6 @@ class TrainingPathRepository(
          * next chapter
          *      ↓
          * next progression level
-         *
-         * Example:
-         *
-         * Beginner Chapter 1
-         * Beginner Chapter 2
-         * Fundamentals Chapter 1
          */
         val nextLesson =
             findNextLessonInPath(
@@ -407,13 +570,13 @@ class TrainingPathRepository(
 
         /*
          * If another lesson exists, progression moves
-         * completely to that lesson — including its
+         * completely to that lesson, including its
          * level and chapter.
          *
-         * If no lesson exists yet, keep the final stored
-         * IDs. TrainingPathViewModel will recognise that
-         * those IDs point to an already-completed final
-         * lesson and display PATH COMPLETE.
+         * If no lesson exists, the final stored IDs
+         * remain. The ViewModel recognises that the
+         * final lesson is completed and displays the
+         * completed Fight Path state.
          */
         val resolvedLevel =
             nextLesson
@@ -505,10 +668,6 @@ class TrainingPathRepository(
         lesson: TrainingLessonDefinition
     ): TrainingLessonDefinition? {
 
-        /*
-         * First look for another lesson inside the
-         * current progression level.
-         */
         val currentLevelLessons =
             TrainingCurriculum
                 .lessonsForSport(
@@ -536,12 +695,6 @@ class TrainingPathRepository(
             ]
         }
 
-        /*
-         * Current level ended.
-         *
-         * Search every higher level until we find
-         * the first available lesson.
-         */
         val currentLevelIndex =
             TrainingPathLevel
                 .entries
@@ -612,7 +765,6 @@ class TrainingPathRepository(
             )
 
         return when {
-
             /*
              * Completing multiple lessons today does
              * not artificially increase the streak.

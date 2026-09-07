@@ -429,6 +429,20 @@ private fun CurrentSessionHeroCard(
                 R.drawable.home_hero_kickboxing
             }
 
+            state.sport.equals(
+                TrainingCurriculum.SPORT_MUAY_THAI,
+                ignoreCase = true
+            ) -> {
+                R.drawable.home_hero_muay_thai
+            }
+
+            state.sport.equals(
+                TrainingCurriculum.SPORT_MMA,
+                ignoreCase = true
+            ) -> {
+                R.drawable.home_hero_mma
+            }
+
             else -> {
                 R.drawable.cornerstone_fighter_hero
             }
